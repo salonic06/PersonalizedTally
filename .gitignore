@@ -17,3 +17,7 @@ build/
 
 # Generated invoices (often customer-specific; keep repo clone-friendly)
 /invoices/**/*.xlsx
+
+# Local / personal working folders — never commit (dummy data: use `python tools/seed_demo.py --yes`)
+/import/
+/Output Invoices/
