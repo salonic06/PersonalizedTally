@@ -1,0 +1,3 @@
+# Pin avoids occasional Qt DLL issues on Windows with very new releases; bump after verifying locally.
+PySide6==6.8.2
+openpyxl>=3.1

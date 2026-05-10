@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Local SQLite (clone-friendly; app creates on first run)
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
+/data/backups/*.db
+
+# Generated invoices (often customer-specific; keep repo clone-friendly)
+/invoices/**/*.xlsx

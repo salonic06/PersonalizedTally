@@ -1,0 +1,94 @@
+"""Lightweight Fusion styling — readable defaults without extra dependencies."""
+
+from __future__ import annotations
+
+# Calm blue-gray accent; tuned for long accounting sessions.
+_ACCENT = "#2563eb"
+_SURFACE = "#f8fafc"
+_BORDER = "#e2e8f0"
+_TEXT = "#0f172a"
+
+
+def global_stylesheet() -> str:
+    return f"""
+    QWidget {{
+        background: {_SURFACE};
+        color: {_TEXT};
+        font-size: 13px;
+    }}
+    QMainWindow {{
+        background: {_SURFACE};
+    }}
+    QLabel {{
+        color: {_TEXT};
+    }}
+    QLineEdit, QTextEdit, QComboBox {{
+        background: #ffffff;
+        border: 1px solid {_BORDER};
+        border-radius: 6px;
+        padding: 4px 8px;
+        selection-background-color: {_ACCENT};
+    }}
+    QComboBox::drop-down {{
+        border: none;
+        width: 22px;
+    }}
+    QPushButton {{
+        background: #ffffff;
+        border: 1px solid {_BORDER};
+        border-radius: 6px;
+        padding: 6px 14px;
+        min-height: 28px;
+    }}
+    QPushButton:hover {{
+        border-color: #cbd5e1;
+        background: #f1f5f9;
+    }}
+    QPushButton:pressed {{
+        background: #e2e8f0;
+    }}
+    QListWidget {{
+        background: #ffffff;
+        border: 1px solid {_BORDER};
+        border-radius: 8px;
+        padding: 6px;
+    }}
+    QListWidget::item:selected {{
+        background: {_ACCENT};
+        color: #ffffff;
+    }}
+    QTableWidget {{
+        background: #ffffff;
+        border: 1px solid {_BORDER};
+        border-radius: 8px;
+        gridline-color: {_BORDER};
+    }}
+    QHeaderView::section {{
+        background: #f1f5f9;
+        padding: 6px;
+        border: none;
+        border-bottom: 1px solid {_BORDER};
+        font-weight: 600;
+    }}
+    QScrollArea {{
+        border: none;
+    }}
+    QGroupBox {{
+        font-weight: 600;
+        border: 1px solid {_BORDER};
+        border-radius: 8px;
+        margin-top: 12px;
+        padding-top: 8px;
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 6px;
+    }}
+    QFrame#dashCard {{
+        background: #ffffff;
+        border: 1px solid {_BORDER};
+        border-radius: 10px;
+        padding: 12px 14px;
+    }}
+    """
