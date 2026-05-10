@@ -82,6 +82,8 @@ python app.py
 
 Destructive: your previous **`data/personalized_tally.db`** contents are removed (`tools/seed_demo.py` refuses unless `--yes`). Existing **`data/backups/*.db`** are left untouched — copy those elsewhere first if you need them.
 
+**`import/` and `Output Invoices/`:** These folders are part of the workflow (see `import/README.md` and `Output Invoices/README.md`). **Real customer `.xlsx` files are not committed** (`.gitignore`); use **`seed_demo.py`** for fictional data. After a clone, run seed once to get dummy invoices under `invoices/<FY>/`.
+
 **Audit log:** Timestamps are **IST** (fixed **UTC+5:30**, same as India Standard Time — no `tzdata` dependency). The **Operator** column uses the **signed-in app username**, falling back to the OS login if needed.
 
 **If you had an older build** that used `data/lamitech.db`, the app **renames it once** to `personalized_tally.db` when the new file is missing.
