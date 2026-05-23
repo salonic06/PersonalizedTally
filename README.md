@@ -4,16 +4,13 @@
 
 Design direction: **zero-training UI** — large navigation, search always visible, clear tables and strong filters.
 
-**Demo walkthrough:** [docs/DEMO.md](docs/DEMO.md)
+| Layer | Technologies |
+|--------|----------------|
+| **Desktop** | Python, PySide6, SQLite, openpyxl |
+| **Web companion** | FastAPI, React, TypeScript, Vite |
+| **Quality** | pytest (40+ tests), GitHub Actions on Windows |
 
-| | |
-|--|--|
-| **Stack** | PySide6, SQLite, openpyxl, FastAPI, React, pytest, GitHub Actions |
-| **Branch** | `main` = desktop · `feature/web-api` = desktop + web companion |
-| **Tests** | `pytest` (40+ tests, incl. FIFO, COGS, API auth) |
-| **To polish GitHub** | Add screenshots + optional 60s Loom (see below) |
-
-**UI refresh (optional before Loom):** [docs/UI_ROADMAP.md](docs/UI_ROADMAP.md)
+**Docs:** [Demo walkthrough](docs/DEMO.md) · [Web companion](docs/WEB_MIGRATION.md)
 
 ---
 
@@ -40,7 +37,7 @@ flowchart TB
     Mig[Migrations]
   end
 
-  subgraph web [Web - feature branch]
+  subgraph web [Web companion]
     API[FastAPI]
     SPA[React]
     SPA --> API
@@ -66,24 +63,22 @@ flowchart TB
 | **Reminders** | `src/notifications`, `src/email_alerts` |
 | **Excel export** | `src/excel_generate` (openpyxl) |
 | **CLI tools** | `seed_demo.py`, `send_owner_digest.py` |
-| **FastAPI / React** | Browser companion on `feature/web-api` — login, monitor, record payments (`api/`, `web/`) |
+| **FastAPI / React** | Browser companion — login, monitor, record payments (`api/`, `web/`) |
 
 ---
 
-## Screenshots & demo video
+## Screenshots
 
-Add files under [`docs/screenshots/`](docs/screenshots/) (see that folder’s README). Link them here when ready:
+Place PNGs in [`docs/screenshots/`](docs/screenshots/) (see that folder). Example set: dashboard, due/outstanding, reminders or analytics, web payment screen.
 
 | | |
 |--|--|
-| Dashboard | ![Dashboard](docs/screenshots/01-dashboard.png) *(add file)* |
-| Due / Outstanding | ![Due](docs/screenshots/02-due-outstanding.png) *(add file)* |
-| Reminders or Analytics | ![Reminders](docs/screenshots/03-reminders-or-analytics.png) *(add file)* |
+| Dashboard | `docs/screenshots/01-dashboard.png` |
+| Due / Outstanding | `docs/screenshots/02-due-outstanding.png` |
+| Reminders or Analytics | `docs/screenshots/03-reminders-or-analytics.png` |
+| Web companion | `docs/screenshots/04-web-payment.png` |
 
-**Loom / walkthrough:** paste your link here after recording (60–90s: login → dashboard → due list → payment or reminders):  
-`https://www.loom.com/share/your-link`
-
-Quick capture: `python tools/seed_demo.py --yes` then `python app.py` → sign in as **owner**.
+Demo data: `python tools/seed_demo.py --yes` then `python app.py` (desktop) or `.\tools\run_web_demo.ps1` (web).
 
 ---
 
@@ -127,7 +122,6 @@ Workers still use global search; hits that only exist on owner-only screens (e.g
 ### Run the app (each session)
 
 ```powershell
-cd C:\Users\Saloni\OneDrive\Desktop\PersonalizedTally
 .\.venv\Scripts\Activate.ps1
 python app.py
 ```
@@ -151,7 +145,7 @@ If **`pip` / `python` is not recognized** (outside the venv): **Settings → App
 
 **Database:** `data/personalized_tally.db` is created on first run (WAL, foreign keys, migrations on startup). Use **Settings → Back up database now** for a timestamped copy under `data/backups/` (uses SQLite’s `backup()` API, safe while the app is running).
 
-### Demo dataset (portfolio / UI tour)
+### Demo dataset
 
 To **erase** the local DB (including `-wal` / `-shm` sidecars under `data/`) and load **dummy customers, invoices, payments (FIFO), RM lots with reorder demo, production batch + costing**, and audit samples:
 
@@ -207,17 +201,19 @@ Destructive: your previous **`data/personalized_tally.db`** contents are removed
 | `src/excel_import.py` | Bulk invoice import (seed) |
 | `src/audit_context.py` | IST timestamp + operator hint for audit rows |
 | `tools/seed_demo.py` | Wipe DB + load demo fixtures (`--yes`) |
+| `api/` | FastAPI HTTP API (web companion) |
+| `web/` | React SPA (web companion) |
 
 ---
 
 ## Development & CI
 
 ```powershell
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt -r requirements-api.txt
 python -m pytest
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** on push/PR to `main` or `master`.
+GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** for `main` and pull requests.
 
 ---
 
@@ -227,75 +223,25 @@ GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** on pu
 
 **Tests:** `pytest` covers domain helpers, aging, excel totals, backup, login, audit log, **FIFO payment allocation**, **batch RM FIFO consumption**, **invoice/batch COGS**, **ledger running balance**, **trash/restore payments**, notifications, and email digest helpers.
 
-**Still optional / later:** richer manufacturing records (BMR-style), multi-user sync, full in-app historical invoice editing, web API + SPA (see below). **Owner email reminders** — see below.
+**Shipped (web companion):** FastAPI + React — monitor receivables, record payments (same SQLite + FIFO as desktop). See [Web companion](#web-companion) below.
 
-Deferred / out of scope today: multi-user sync, full in-app historical invoice editing (regenerate-from-template workflow).
+**Optional / later:** richer manufacturing records (BMR-style), multi-user sync, full in-app historical invoice editing, hosted deploy with HTTPS.
 
 ---
 
+## Web companion
 
-## Web companion (`feature/web-api` branch only)
+Optional **browser UI** over the same database — monitor dues and **record payments** with the same FIFO rules as the desktop app. Invoicing, Excel, production, and settings remain on **PySide6**.
 
-**Why a web app?** Check receivables and **record payments from a browser** (same SQLite + FIFO rules as desktop) — useful when you are away from the Windows PC. **Invoicing, Excel, production, and settings stay on PySide6.** See [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md).
+| Mode | Command | URL |
+|------|---------|-----|
+| **Quick demo** (one port) | `.\tools\run_web_demo.ps1` | http://localhost:8000 |
+| **Development** | API: `uvicorn api.main:app --reload --port 8000` · UI: `cd web && npm run dev` | http://localhost:5173 |
+| **API docs** | (with API running) | http://127.0.0.1:8000/docs |
 
-**Terminal 1 — API** (repo root; use venv — `pip`/`uvicorn` need not be on PATH):
+Install API deps once: `pip install -r requirements-api.txt` (or include in the install line above). Sign in with the same **owner/worker** accounts as the desktop app.
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-api.txt
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload --port 8000
-```
-
-**Terminal 2 — React** (install [Node.js LTS](https://nodejs.org) first; new terminal):
-
-```powershell
-cd web
-npm install
-npm run dev
-```
-
-Open http://localhost:5173 — sign in with the same **owner/worker** users as desktop (default `owner` / `owner123` until you change them).  
-API docs: http://127.0.0.1:8000/docs
-
-**One-port web demo** (built UI + API on :8000):
-
-```powershell
-.\tools\run_web_demo.ps1
-```
-
-Uses the same `data/personalized_tally.db` as the desktop app.
-
-### Use from another laptop (same Wi‑Fi)
-
-On the **PC that has** `data/personalized_tally.db` (no desktop app needed on the other laptop):
-
-1. Find this PC’s IP: `ipconfig` → **IPv4 Address** (e.g. `192.168.1.42`).
-2. **Terminal 1** — API must listen on all interfaces:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-
-3. **Terminal 2** — React dev server (already allows LAN after `host: true` in `web/vite.config.ts`):
-
-```powershell
-cd web
-npm run dev
-```
-
-4. On the **other laptop**, open: `http://192.168.1.42:5173` (use your real IP).
-
-5. If the page loads but sign-in fails, allow **Windows Firewall** for Python and Node on the server PC (private network). Optional in `.env`: `PT_WEB_ORIGINS=http://192.168.1.42:5173` if you use a non-standard port.
-
-**App changes:** CORS in `api/main.py` already allows `http://192.168.x.x:5173`. No PySide6 changes. Only start commands use `--host 0.0.0.0` for the API.
-
-**`ERR_CONNECTION_TIMED_OUT` on the other laptop?** Work through this on the **server PC**:
-
-1. Stop old terminals. Start API with `--host 0.0.0.0` and `npm run dev` again (Vite must show a **Network:** line with your IP).
-2. On the **server PC**, open `http://192.168.31.122:5173` (your IP) — not only `localhost`. If this fails, the dev servers are not bound to the LAN yet.
-3. Run `.\tools\check_lan.ps1` — confirms ports `0.0.0.0:5173` and `0.0.0.0:8000` are listening.
-4. If step 2 works on the server PC but the other laptop still times out → **Windows Firewall**: run **`tools\open_lan_firewall.ps1` as Administrator** on the server PC.
-5. Same Wi‑Fi for both; avoid **guest** Wi‑Fi (often blocks device-to-device). Test API first on the other laptop: `http://<ip>:8000/docs`.
+**Another device on the same network:** run the API with `--host 0.0.0.0`, use your PC’s IP instead of `localhost`, and allow the ports through Windows Firewall if needed (`tools/check_lan.ps1`, `tools/open_lan_firewall.ps1`). Details: [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md).
 
 ---
 
