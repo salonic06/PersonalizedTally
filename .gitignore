@@ -12,6 +12,9 @@ build/
 # Owner email digest secrets (SMTP)
 .env
 
+# Personal resume notes (keep locally; see docs/DEMO.md in repo)
+docs/PORTFOLIO.md
+
 # Local SQLite (clone-friendly; app creates on first run)
 /data/*.db
 /data/*.db-wal

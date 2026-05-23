@@ -4,7 +4,13 @@
 
 Design direction: **zero-training UI** — large navigation, search always visible, clear tables and strong filters.
 
-**Portfolio:** targeting SDE / full-stack / ML roles — see [docs/PORTFOLIO.md](docs/PORTFOLIO.md). **UI refresh** plan: [docs/UI_ROADMAP.md](docs/UI_ROADMAP.md).
+| Layer | Technologies |
+|--------|----------------|
+| **Desktop** | Python, PySide6, SQLite, openpyxl |
+| **Web companion** | FastAPI, React, TypeScript, Vite |
+| **Quality** | pytest (40+ tests), GitHub Actions on Windows |
+
+**Docs:** [Demo walkthrough](docs/DEMO.md) · [Web companion](docs/WEB_MIGRATION.md)
 
 ---
 
@@ -31,7 +37,14 @@ flowchart TB
     Mig[Migrations]
   end
 
+  subgraph web [Web companion]
+    API[FastAPI]
+    SPA[React]
+    SPA --> API
+  end
+
   PG --> Repo
+  API --> Repo
   Repo --> Domain
   Repo --> DB
   Mig --> DB
@@ -50,23 +63,22 @@ flowchart TB
 | **Reminders** | `src/notifications`, `src/email_alerts` |
 | **Excel export** | `src/excel_generate` (openpyxl) |
 | **CLI tools** | `seed_demo.py`, `send_owner_digest.py` |
+| **FastAPI / React** | Browser companion — login, monitor, record payments (`api/`, `web/`) |
 
 ---
 
-## Screenshots & demo video
+## Screenshots
 
-Add files under [`docs/screenshots/`](docs/screenshots/) (see that folder’s README). Link them here when ready:
+Place PNGs in [`docs/screenshots/`](docs/screenshots/) (see that folder). Example set: dashboard, due/outstanding, reminders or analytics, web payment screen.
 
 | | |
 |--|--|
-| Dashboard | ![Dashboard](docs/screenshots/01-dashboard.png) *(add file)* |
-| Due / Outstanding | ![Due](docs/screenshots/02-due-outstanding.png) *(add file)* |
-| Reminders or Analytics | ![Reminders](docs/screenshots/03-reminders-or-analytics.png) *(add file)* |
+| Dashboard | `docs/screenshots/01-dashboard.png` |
+| Due / Outstanding | `docs/screenshots/02-due-outstanding.png` |
+| Reminders or Analytics | `docs/screenshots/03-reminders-or-analytics.png` |
+| Web companion | `docs/screenshots/04-web-payment.png` |
 
-**Loom / walkthrough:** paste your link here after recording (60–90s: login → dashboard → due list → payment or reminders):  
-`https://www.loom.com/share/your-link`
-
-Quick capture: `python tools/seed_demo.py --yes` then `python app.py` → sign in as **owner**.
+Demo data: `python tools/seed_demo.py --yes` then `python app.py` (desktop) or `.\tools\run_web_demo.ps1` (web).
 
 ---
 
@@ -110,7 +122,6 @@ Workers still use global search; hits that only exist on owner-only screens (e.g
 ### Run the app (each session)
 
 ```powershell
-cd C:\Users\Saloni\OneDrive\Desktop\PersonalizedTally
 .\.venv\Scripts\Activate.ps1
 python app.py
 ```
@@ -134,7 +145,7 @@ If **`pip` / `python` is not recognized** (outside the venv): **Settings → App
 
 **Database:** `data/personalized_tally.db` is created on first run (WAL, foreign keys, migrations on startup). Use **Settings → Back up database now** for a timestamped copy under `data/backups/` (uses SQLite’s `backup()` API, safe while the app is running).
 
-### Demo dataset (portfolio / UI tour)
+### Demo dataset
 
 To **erase** the local DB (including `-wal` / `-shm` sidecars under `data/`) and load **dummy customers, invoices, payments (FIFO), RM lots with reorder demo, production batch + costing**, and audit samples:
 
@@ -190,17 +201,19 @@ Destructive: your previous **`data/personalized_tally.db`** contents are removed
 | `src/excel_import.py` | Bulk invoice import (seed) |
 | `src/audit_context.py` | IST timestamp + operator hint for audit rows |
 | `tools/seed_demo.py` | Wipe DB + load demo fixtures (`--yes`) |
+| `api/` | FastAPI HTTP API (web companion) |
+| `web/` | React SPA (web companion) |
 
 ---
 
 ## Development & CI
 
 ```powershell
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt -r requirements-api.txt
 python -m pytest
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** on push/PR to `main` or `master`.
+GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** for `main` and pull requests.
 
 ---
 
@@ -210,22 +223,25 @@ GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** on pu
 
 **Tests:** `pytest` covers domain helpers, aging, excel totals, backup, login, audit log, **FIFO payment allocation**, **batch RM FIFO consumption**, **invoice/batch COGS**, **ledger running balance**, **trash/restore payments**, notifications, and email digest helpers.
 
-**Still optional / later:** richer manufacturing records (BMR-style), multi-user sync, full in-app historical invoice editing, web API + SPA (see below). **Owner email reminders** — see below.
+**Shipped (web companion):** FastAPI + React — monitor receivables, record payments (same SQLite + FIFO as desktop). See [Web companion](#web-companion) below.
 
-Deferred / out of scope today: multi-user sync, full in-app historical invoice editing (regenerate-from-template workflow).
+**Optional / later:** richer manufacturing records (BMR-style), multi-user sync, full in-app historical invoice editing, hosted deploy with HTTPS.
 
 ---
 
+## Web companion
 
-## Web version / “migrate to web”
+Optional **browser UI** over the same database — monitor dues and **record payments** with the same FIFO rules as the desktop app. Invoicing, Excel, production, and settings remain on **PySide6**.
 
-Moving this to a **browser app** is **not a small rename**: the **PySide6 desktop UI** is separate from a SPA; invoices today use **openpyxl** (still portable to a server). A practical path for a **product-style** rewrite is:
+| Mode | Command | URL |
+|------|---------|-----|
+| **Quick demo** (one port) | `.\tools\run_web_demo.ps1` | http://localhost:8000 |
+| **Development** | API: `uvicorn api.main:app --reload --port 8000` · UI: `cd web && npm run dev` | http://localhost:5173 |
+| **API docs** | (with API running) | http://127.0.0.1:8000/docs |
 
-1. **Keep** SQLite schema + migration ideas and **extract** more pure Python (domain rules, allocation math) with tests — already the direction of `src/domain.py` and `src/repo/`.
-2. **Add** a small **HTTP API** (e.g. FastAPI) that wraps the same DB and business operations.
-3. **Rebuild** the UI as a **SPA** (React / Vue / Svelte) talking to that API; reuse **server-side** `openpyxl` (or add PDF) for invoices.
+Install API deps once: `pip install -r requirements-api.txt` (or include in the install line above). Sign in with the same **owner/worker** accounts as the desktop app.
 
-That is a **parallel track**, not a flip-a-flag migration — plan it as a second project phase if you need a web portfolio piece for product companies.
+**Another device on the same network:** run the API with `--host 0.0.0.0`, use your PC’s IP instead of `localhost`, and allow the ports through Windows Firewall if needed (`tools/check_lan.ps1`, `tools/open_lan_firewall.ps1`). Details: [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md).
 
 ---
 
