@@ -16,7 +16,35 @@ body {
 main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 24px 16px 48px;
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 16px 12px 32px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  table {
+    font-size: 0.8rem;
+  }
+
+  th,
+  td {
+    padding: 6px 8px;
+  }
+
+  button,
+  .tabs button {
+    min-height: 44px;
+  }
 }
 
 h1 {

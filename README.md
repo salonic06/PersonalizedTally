@@ -4,7 +4,16 @@
 
 Design direction: **zero-training UI** — large navigation, search always visible, clear tables and strong filters.
 
-**Portfolio:** targeting SDE / full-stack / ML roles — see [docs/PORTFOLIO.md](docs/PORTFOLIO.md). **UI refresh** plan: [docs/UI_ROADMAP.md](docs/UI_ROADMAP.md).
+**Portfolio:** [docs/PORTFOLIO.md](docs/PORTFOLIO.md) · **Demo walkthrough:** [docs/DEMO.md](docs/DEMO.md)
+
+| | |
+|--|--|
+| **Stack** | PySide6, SQLite, openpyxl, FastAPI, React, pytest, GitHub Actions |
+| **Branch** | `main` = desktop · `feature/web-api` = desktop + web companion |
+| **Tests** | `pytest` (40+ tests, incl. FIFO, COGS, API auth) |
+| **To polish GitHub** | Add screenshots + optional 60s Loom (see below) |
+
+**UI refresh (optional before Loom):** [docs/UI_ROADMAP.md](docs/UI_ROADMAP.md)
 
 ---
 
@@ -247,6 +256,12 @@ npm run dev
 
 Open http://localhost:5173 — sign in with the same **owner/worker** users as desktop (default `owner` / `owner123` until you change them).  
 API docs: http://127.0.0.1:8000/docs
+
+**One-port web demo** (built UI + API on :8000):
+
+```powershell
+.\tools\run_web_demo.ps1
+```
 
 Uses the same `data/personalized_tally.db` as the desktop app.
 

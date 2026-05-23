@@ -1,44 +1,62 @@
-# Portfolio angles (SDE · full-stack · ML)
+# Portfolio pack (SDE1 · full-stack)
 
-Use this when tailoring your resume and GitHub profile.
+## Elevator pitch (30 seconds)
 
-## One-line pitch
+I built an **offline desktop operations app** for Indian SMBs — GST-style Excel invoices, receivables, **FIFO payment allocation**, inventory and production costing — plus a **FastAPI + React companion** that reuses the same `Repo` layer so business rules live in one place. It has **pytest**, **GitHub Actions**, role-based auth, and owner email digests.
 
-Desktop operations app for Indian SMBs: GST invoices, AR with **FIFO payments**, inventory + production costing, analytics, pytest + CI, owner email digests.
+## Tech stack (put on resume / GitHub About)
 
-## By role type
+| Layer | Technologies |
+|--------|----------------|
+| Desktop UI | Python 3.12, PySide6 |
+| Web companion | FastAPI, React, TypeScript, Vite (`feature/web-api`) |
+| Data | SQLite (WAL, FKs, migrations, SQL views) |
+| Integrations | openpyxl (invoices), SMTP (owner digests) |
+| Quality | pytest (40+ tests), GitHub Actions (Windows) |
 
-### SDE (general / backend-leaning)
+**GitHub topics:** `python`, `sqlite`, `pyside6`, `fastapi`, `react`, `pytest`, `fullstack`
 
-Lead with: **domain logic** (FIFO, COGS, `invoice_balances` view), **data integrity** (FKs, soft delete, migrations), **tests + CI**, audit log.
+## Resume bullets (copy-paste)
 
-Interview stories: payment allocation order; trashed payment vs outstanding; batch yield → cost/kg.
+- Built **PySide6 + SQLite** desktop app for invoicing, AR, inventory, and production with **FIFO payment allocation** and **batch COGS** on invoice lines.
+- Refactored data layer into **`src/repo`** package; added **pytest** (FIFO, COGS, ledger, notifications, API auth) and **GitHub Actions** CI on Windows.
+- Shipped **FastAPI + React** companion (`feature/web-api`): session auth, receivables dashboard, **record payments** via shared `Repo` — no duplicated domain logic in the frontend.
+- Implemented **openpyxl** invoice generation, receivables aging, audit log, role-based access, and **owner email digests** (SMTP).
 
-### Full-stack
+## What impresses SDE1 interviewers
 
-Same as SDE, plus: clear **layering** (`ui` / `repo` / `db` / `domain`), headless **openpyxl** invoice generation.
-
-Stretch project (separate PR): **FastAPI** read-only API + small **React** dashboard for due/outstanding — reuses SQLite schema; 1–2 weekends.
-
-### ML / AI
-
-This repo is **not** an ML project. Pair it on your profile with **Mental Wellness Chatbot** (or similar): LLM, RAG, API.
-
-Optional light ML tie-in here (only if you build it): export analytics CSV → notebook for sales forecast; or “anomaly” flag on overdue spikes — do not fake ML in the desktop app without real models.
-
-## Resume bullets (template)
-
-- Built **PySide6 + SQLite** desktop app for invoicing, AR, and inventory with **FIFO payment allocation** and production **batch COGS** on invoice lines.
-- Implemented **openpyxl** invoice generation, receivables aging, role-based auth, audit log, and **owner email digests** (SMTP).
-- Added **pytest** suite (FIFO, COGS, ledger, trash/restore) and **GitHub Actions** CI on Windows.
+| Signal | Evidence in this repo |
+|--------|------------------------|
+| Domain logic | FIFO, due dates, aging buckets, COGS |
+| Data design | Migrations, views, soft delete, audit log |
+| Testing | Unit tests on money paths, API tests |
+| Layering | `ui` / `api` / `repo` / `domain` / `db` |
+| Full-stack | Desktop + API + SPA, shared schema |
+| Pragmatism | Desktop = full product; web = companion |
 
 ## GitHub checklist
 
-- [ ] Architecture diagram in README (below)
-- [ ] 2–3 screenshots in `docs/screenshots/` linked from README
-- [ ] Optional Loom link in README
-- [ ] Pinned repo with clear description and topics: `python`, `sqlite`, `pyside6`, `pytest`
+- [x] Architecture diagram + legend in README
+- [x] `docs/DEMO.md` — walkthrough script
+- [ ] **2–3 PNGs** in `docs/screenshots/` (desktop)
+- [ ] **1 PNG** web payment screen (optional)
+- [ ] **Loom 60–90s** — link in README
+- [ ] Pin repo; strong description; topics above
+- [ ] PR `feature/web-api` → `main` when ready (or link branch in README)
 
-## UI / design (next pass)
+## ML roles
 
-See [UI_ROADMAP.md](UI_ROADMAP.md) — nav grouping, primary actions, optional dark mode. Not required for backend interviews; helps product/full-stack screens.
+This repo is **not** ML. Pair on your profile with an LLM/RAG project. Optional tie-in: export analytics CSV → notebook (only if you actually build it).
+
+## UI polish (optional, before screenshots)
+
+See [UI_ROADMAP.md](UI_ROADMAP.md) Phase 1 — primary buttons, nav labels. Do **before** Loom if you want a sharper visual.
+
+## Branch map
+
+| Branch | What reviewers see |
+|--------|---------------------|
+| `main` | Desktop product, CI, tests, email digests |
+| `feature/web-api` | Everything in `main` + FastAPI + React companion |
+
+**Web branch:** clone → `feature/web-api` → follow [DEMO.md](DEMO.md).
