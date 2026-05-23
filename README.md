@@ -31,7 +31,7 @@ flowchart TB
     Mig[Migrations]
   end
 
-  subgraph web [Web slice - feature branch]
+  subgraph web [Web - feature branch]
     API[FastAPI]
     SPA[React]
     SPA --> API
@@ -57,14 +57,7 @@ flowchart TB
 | **Reminders** | `src/notifications`, `src/email_alerts` |
 | **Excel export** | `src/excel_generate` (openpyxl) |
 | **CLI tools** | `seed_demo.py`, `send_owner_digest.py` |
-| **FastAPI / React** | Read-only portfolio API + dashboard (`api/`, `web/`) |
-
-| Layer | Responsibility |
-|--------|----------------|
-| **UI** | Qt widgets, filters, role-gated nav (owner vs worker) |
-| **Repo** | Customers, invoices, FIFO payments, RM lots, batches, COGS, ledger, search |
-| **SQLite** | Single-file DB, WAL, FKs, soft delete, audit log |
-| **Excel** | Template fill + GST totals (no Microsoft Excel required) |
+| **FastAPI / React** | Browser companion on `feature/web-api` — login, monitor, record payments (`api/`, `web/`) |
 
 ---
 
@@ -232,32 +225,30 @@ Deferred / out of scope today: multi-user sync, full in-app historical invoice e
 ---
 
 
-## Web dashboard (`feature/web-api` branch)
+## Web companion (`feature/web-api` branch only)
 
-Read-only **FastAPI + React** slice over the same SQLite DB — see [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md). Desktop app remains the full product.
+**Why a web app?** Check receivables and **record payments from a browser** (same SQLite + FIFO rules as desktop) — useful when you are away from the Windows PC. **Invoicing, Excel, production, and settings stay on PySide6.** See [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md).
 
-**Terminal 1 — API** (from repo root, venv active):
+**Terminal 1 — API** (repo root; use venv — `pip`/`uvicorn` need not be on PATH):
 
 ```powershell
-pip install -r requirements.txt -r requirements-api.txt
-uvicorn api.main:app --reload --port 8000
+.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-api.txt
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload --port 8000
 ```
 
-**Terminal 2 — React** (first time: `cd web` then `npm install`):
+**Terminal 2 — React** (install [Node.js LTS](https://nodejs.org) first; new terminal):
 
 ```powershell
 cd web
+npm install
 npm run dev
 ```
 
-Open http://localhost:5173 — dashboard, reminders, overdue / due-today tables.  
+Open http://localhost:5173 — sign in with the same **owner/worker** users as desktop (default `owner` / `owner123` until you change them).  
 API docs: http://127.0.0.1:8000/docs
 
-Use the same `data/personalized_tally.db` as the desktop app (run `seed_demo.py` or your real data first).
-
-### Longer-term web plan
-
-Not a big-bang migration: keep **PySide6** for invoicing and Excel; extend the API only if you need writes or hosting later ([docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md)).
+Uses the same `data/personalized_tally.db` as the desktop app.
 
 ---
 
