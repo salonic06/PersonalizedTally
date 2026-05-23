@@ -265,18 +265,6 @@ API docs: http://127.0.0.1:8000/docs
 
 Uses the same `data/personalized_tally.db` as the desktop app.
 
-### Add to Home Screen (install as app)
-
-Browsers only offer a proper **Install app** prompt on **`https://`** or **`http://localhost`** — not on `http://192.168.x.x` (hotspot/LAN).
-
-| Where you open the site | What to do |
-|-------------------------|------------|
-| **Same PC** — `http://localhost:5173` or `http://localhost:8000` | Chrome/Edge: address bar **Install** icon, or click **Install app on this device** if shown |
-| **Phone on hotspot** — `http://<ip>:5173` | **iPhone Safari:** Share → **Add to Home Screen**. **Android Chrome:** ⋮ menu → **Install app** or **Add to Home screen** (wording varies) |
-| **Deployed HTTPS** (later) | Install prompt works like a normal PWA |
-
-After changing PWA files, restart `npm run dev` or run `.\tools\run_web_demo.ps1` again (build copies new icons + service worker).
-
 ### Use from another laptop (same Wi‑Fi)
 
 On the **PC that has** `data/personalized_tally.db` (no desktop app needed on the other laptop):
