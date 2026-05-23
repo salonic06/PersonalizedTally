@@ -232,7 +232,12 @@ def _mount_web_ui_if_enabled() -> None:
             raise HTTPException(status_code=404, detail="Not found")
         candidate = dist / spa_path
         if spa_path and candidate.is_file():
-            return FileResponse(candidate)
+            media = None
+            if spa_path.endswith(".js"):
+                media = "application/javascript"
+            elif spa_path.endswith(".webmanifest"):
+                media = "application/manifest+json"
+            return FileResponse(candidate, media_type=media)
         return FileResponse(dist / "index.html")
 
 

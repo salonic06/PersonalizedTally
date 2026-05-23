@@ -10,6 +10,34 @@ import {
   type User,
 } from "./api";
 
+function InstallHint() {
+  const [install, setInstall] = useState<{ prompt: () => Promise<void> } | null>(null);
+
+  useEffect(() => {
+    const onBip = (e: Event) => {
+      e.preventDefault();
+      const ev = e as Event & { prompt: () => Promise<{ outcome: string }> };
+      setInstall({
+        prompt: async () => {
+          await ev.prompt();
+          setInstall(null);
+        },
+      });
+    };
+    window.addEventListener("beforeinstallprompt", onBip);
+    return () => window.removeEventListener("beforeinstallprompt", onBip);
+  }, []);
+
+  if (!install) return null;
+  return (
+    <p className="install-hint">
+      <button type="button" className="secondary" onClick={() => install.prompt()}>
+        Install app on this device
+      </button>
+    </p>
+  );
+}
+
 function LoginScreen({ onLoggedIn }: { onLoggedIn: (u: User) => void }) {
   const [username, setUsername] = useState("owner");
   const [password, setPassword] = useState("");
@@ -37,6 +65,7 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (u: User) => void }) {
         Web companion — monitor receivables and record payments (same FIFO rules as desktop).
         Invoicing and Excel stay in the Windows app.
       </p>
+      <InstallHint />
       <form className="panel" onSubmit={submit}>
         <label>
           Username
@@ -169,6 +198,7 @@ function DashboardApp({ user, onLogout }: { user: User; onLogout: () => void }) 
 
   return (
     <main>
+      <InstallHint />
       <header className="topbar">
         <div>
           <h1>Personalized Tally</h1>
