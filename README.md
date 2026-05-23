@@ -4,7 +4,7 @@
 
 Design direction: **zero-training UI** — large navigation, search always visible, clear tables and strong filters.
 
-**Portfolio:** [docs/PORTFOLIO.md](docs/PORTFOLIO.md) · **Demo walkthrough:** [docs/DEMO.md](docs/DEMO.md)
+**Demo walkthrough:** [docs/DEMO.md](docs/DEMO.md)
 
 | | |
 |--|--|
