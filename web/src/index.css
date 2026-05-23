@@ -1,0 +1,143 @@
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: #64748b;
+  margin: 0 0 24px;
+  font-size: 0.95rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.card label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.card strong {
+  display: block;
+  font-size: 1.35rem;
+  margin-top: 6px;
+}
+
+section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+section h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+}
+
+.reminder {
+  border-left: 4px solid #2563eb;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #f8fafc;
+  border-radius: 0 8px 8px 0;
+}
+
+.reminder.critical {
+  border-left-color: #dc2626;
+}
+
+.reminder.warning {
+  border-left-color: #d97706;
+}
+
+.reminder pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.tabs button {
+  margin-right: 8px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}

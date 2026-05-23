@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-def connect(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path))
+def connect(db_path: Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
+    conn = sqlite3.connect(str(db_path), check_same_thread=check_same_thread)
     # Autocommit unless `transaction()` opens BEGIN — avoids nested-transaction errors
     # when repo helpers call `transaction(conn)` after other statements.
     conn.isolation_level = None

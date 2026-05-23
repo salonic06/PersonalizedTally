@@ -12,35 +12,52 @@ Design direction: **zero-training UI** — large navigation, search always visib
 
 ```mermaid
 flowchart TB
-  subgraph ui [PySide6 UI]
-    MW[MainWindow + nav]
-    Pages[Pages: Dashboard, Invoices, Due, Ledger, RM, Production, Payments, Analytics]
-    MW --> Pages
+  subgraph ui [PySide6 desktop]
+    MW[Main window]
+    PG[Pages]
+    MW --> PG
   end
 
   subgraph core [Application core]
-    Repo[src/repo — SQL and business rules]
-    Domain[src/domain — due dates, aging buckets]
-    Notif[src/notifications + email_alerts]
-    Excel[src/excel_generate — openpyxl invoices]
+    Repo[Repo layer]
+    Domain[Domain rules]
+    Notif[Reminders]
+    Excel[Excel export]
   end
 
   subgraph data [Data]
-    DB[(SQLite personalized_tally.db)]
-    Views[Views: invoice_balances, customer_outstanding]
-    Migrations[migrate.py on startup]
+    DB[(SQLite DB)]
+    Views[SQL views]
+    Mig[Migrations]
   end
 
-  Pages --> Repo
+  subgraph web [Web slice - feature branch]
+    API[FastAPI]
+    SPA[React]
+    SPA --> API
+  end
+
+  PG --> Repo
+  API --> Repo
   Repo --> Domain
   Repo --> DB
-  Migrations --> DB
+  Mig --> DB
   DB --> Views
   Views --> Repo
-  Pages --> Excel
+  PG --> Excel
   Notif --> Repo
-  Tools[tools/seed_demo.py / send_owner_digest.py] --> Repo
+  Tools[CLI tools] --> Repo
 ```
+
+| Box | Meaning |
+|-----|---------|
+| **Pages** | Dashboard, invoices, due, ledger, stock, production, payments, analytics |
+| **Repo layer** | `src/repo` — SQL + FIFO, COGS, ledger |
+| **Domain rules** | `src/domain` — due dates, aging buckets |
+| **Reminders** | `src/notifications`, `src/email_alerts` |
+| **Excel export** | `src/excel_generate` (openpyxl) |
+| **CLI tools** | `seed_demo.py`, `send_owner_digest.py` |
+| **FastAPI / React** | Read-only portfolio API + dashboard (`api/`, `web/`) |
 
 | Layer | Responsibility |
 |--------|----------------|
@@ -215,15 +232,32 @@ Deferred / out of scope today: multi-user sync, full in-app historical invoice e
 ---
 
 
-## Web version / “migrate to web”
+## Web dashboard (`feature/web-api` branch)
 
-Moving this to a **browser app** is **not a small rename**: the **PySide6 desktop UI** is separate from a SPA; invoices today use **openpyxl** (still portable to a server). A practical path for a **product-style** rewrite is:
+Read-only **FastAPI + React** slice over the same SQLite DB — see [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md). Desktop app remains the full product.
 
-1. **Keep** SQLite schema + migration ideas and **extract** more pure Python (domain rules, allocation math) with tests — already the direction of `src/domain.py` and `src/repo/`.
-2. **Add** a small **HTTP API** (e.g. FastAPI) that wraps the same DB and business operations.
-3. **Rebuild** the UI as a **SPA** (React / Vue / Svelte) talking to that API; reuse **server-side** `openpyxl` (or add PDF) for invoices.
+**Terminal 1 — API** (from repo root, venv active):
 
-That is a **parallel track**, not a flip-a-flag migration — plan it as a second project phase if you need a web portfolio piece for product companies.
+```powershell
+pip install -r requirements.txt -r requirements-api.txt
+uvicorn api.main:app --reload --port 8000
+```
+
+**Terminal 2 — React** (first time: `cd web` then `npm install`):
+
+```powershell
+cd web
+npm run dev
+```
+
+Open http://localhost:5173 — dashboard, reminders, overdue / due-today tables.  
+API docs: http://127.0.0.1:8000/docs
+
+Use the same `data/personalized_tally.db` as the desktop app (run `seed_demo.py` or your real data first).
+
+### Longer-term web plan
+
+Not a big-bang migration: keep **PySide6** for invoicing and Excel; extend the API only if you need writes or hosting later ([docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md)).
 
 ---
 

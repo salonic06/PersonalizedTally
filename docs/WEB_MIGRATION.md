@@ -20,17 +20,17 @@ Same **SQLite schema** and **`src/repo`** — the API must not fork business rul
 - `pytest` + GitHub Actions CI
 - Owner email digests (`src/email_alerts.py`, `src/notifications.py`)
 
-### Phase 1 — `feature/web-api` (portfolio slice)
+### Phase 1 — `feature/web-api` (portfolio slice) — implemented
 
 **Goal:** Prove full-stack without rewriting the desktop UI.
 
-| Deliverable | Notes |
+| Deliverable | Status |
 |-------------|--------|
-| `api/` FastAPI app | Lifespan: connect DB, `migrate()`, shared `Repo` |
-| Read-only routes | `GET /health`, `/dashboard`, `/due`, `/reminders` |
-| `web/` Vite + React | One dashboard page calling the API |
-| CORS | Dev: React `:5173` → API `:8000` |
-| Docs | README section + run instructions |
+| `api/main.py` FastAPI | Done — shared `Repo`, `migrate()` on startup |
+| `GET /api/health`, `/dashboard`, `/due`, `/reminders` | Done |
+| `web/` Vite + React | Done — one dashboard page |
+| CORS + Vite proxy | Done |
+| `tests/test_api.py` | Done |
 
 **Out of scope for Phase 1:** login parity, creating invoices/payments in browser, openpyxl in browser.
 
