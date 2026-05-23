@@ -26,19 +26,81 @@ def api_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
         yield client
 
 
-def test_api_health_and_dashboard(api_client: TestClient) -> None:
-    r = api_client.get("/api/health")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+def _login(client: TestClient, username: str = "owner", password: str = "owner123") -> None:
+    r = client.post("/api/auth/login", json={"username": username, "password": password})
+    assert r.status_code == 200, r.text
+
+
+def test_api_requires_auth(api_client: TestClient) -> None:
+    assert api_client.get("/api/dashboard").status_code == 401
+    assert api_client.get("/api/health").status_code == 200
+
+
+def test_api_login_and_dashboard(api_client: TestClient) -> None:
+    _login(api_client)
+    me = api_client.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["role"] == "owner"
 
     d = api_client.get("/api/dashboard")
     assert d.status_code == 200
     body = d.json()
     assert body["total_outstanding"] >= 1000.0
-    assert "as_of" in body
+
+
+def test_api_create_payment_fifo(api_client: TestClient) -> None:
+    _login(api_client)
+    repo: Repo = api_client.app.state.repo
+    cid = int(repo.list_customers()[0]["id"])
+    before = repo.dashboard_summary(date.today()).total_outstanding
+
+    r = api_client.post(
+        "/api/payments",
+        json={
+            "customer_id": cid,
+            "payment_date": date.today().isoformat(),
+            "amount": 100.0,
+            "mode": "UPI",
+            "reference": "TEST-UTR",
+        },
+    )
+    assert r.status_code == 201, r.text
+    pid = r.json()["id"]
+    assert pid > 0
+
+    after = repo.dashboard_summary(date.today()).total_outstanding
+    assert after <= before - 99.0
+
+    recent = api_client.get("/api/payments?limit=5")
+    assert any(p["id"] == pid for p in recent.json())
+
+
+def test_api_worker_can_pay_owner_can_add_customer(api_client: TestClient) -> None:
+    _login(api_client, "worker", "worker123")
+    repo: Repo = api_client.app.state.repo
+    cid = int(repo.list_customers()[0]["id"])
+    assert (
+        api_client.post(
+            "/api/payments",
+            json={
+                "customer_id": cid,
+                "payment_date": date.today().isoformat(),
+                "amount": 50.0,
+                "mode": "Cash",
+            },
+        ).status_code
+        == 201
+    )
+    assert api_client.post("/api/customers", json={"name": "Worker Blocked", "credit_days": 30}).status_code == 403
+
+    _login(api_client)
+    r = api_client.post("/api/customers", json={"name": "Web New Co", "credit_days": 45})
+    assert r.status_code == 201
+    assert r.json()["name"] == "Web New Co"
 
 
 def test_api_due_overdue_filter(api_client: TestClient) -> None:
+    _login(api_client)
     repo: Repo = api_client.app.state.repo
     rows = repo.conn.execute("SELECT customer_id FROM invoices LIMIT 1").fetchone()
     cid = int(rows["customer_id"])

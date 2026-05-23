@@ -8,6 +8,16 @@ class HealthOut(BaseModel):
     app: str = "Personalized Tally API"
 
 
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    username: str
+    role: str
+
+
 class DashboardOut(BaseModel):
     as_of: str
     total_outstanding: float
@@ -40,3 +50,38 @@ class RemindersOut(BaseModel):
     as_of: str
     items: list[ReminderOut] = Field(default_factory=list)
     digest_text: str = ""
+
+
+class CustomerOut(BaseModel):
+    id: int
+    name: str
+    credit_days: int
+
+
+class CustomerCreateIn(BaseModel):
+    name: str = Field(min_length=1)
+    credit_days: int = Field(default=45, ge=1, le=3650)
+
+
+class PaymentCreateIn(BaseModel):
+    customer_id: int = Field(gt=0)
+    payment_date: str = Field(description="ISO date YYYY-MM-DD")
+    amount: float = Field(gt=0)
+    mode: str = ""
+    reference: str = ""
+    notes: str = ""
+
+
+class PaymentOut(BaseModel):
+    id: int
+    customer_id: int
+    customer_name: str
+    payment_date: str
+    amount: float
+    mode: str
+    reference: str
+
+
+class PaymentCreatedOut(BaseModel):
+    id: int
+    message: str = "Payment saved and allocated FIFO to oldest invoices."

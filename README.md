@@ -250,6 +250,38 @@ API docs: http://127.0.0.1:8000/docs
 
 Uses the same `data/personalized_tally.db` as the desktop app.
 
+### Use from another laptop (same Wi‑Fi)
+
+On the **PC that has** `data/personalized_tally.db` (no desktop app needed on the other laptop):
+
+1. Find this PC’s IP: `ipconfig` → **IPv4 Address** (e.g. `192.168.1.42`).
+2. **Terminal 1** — API must listen on all interfaces:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+3. **Terminal 2** — React dev server (already allows LAN after `host: true` in `web/vite.config.ts`):
+
+```powershell
+cd web
+npm run dev
+```
+
+4. On the **other laptop**, open: `http://192.168.1.42:5173` (use your real IP).
+
+5. If the page loads but sign-in fails, allow **Windows Firewall** for Python and Node on the server PC (private network). Optional in `.env`: `PT_WEB_ORIGINS=http://192.168.1.42:5173` if you use a non-standard port.
+
+**App changes:** CORS in `api/main.py` already allows `http://192.168.x.x:5173`. No PySide6 changes. Only start commands use `--host 0.0.0.0` for the API.
+
+**`ERR_CONNECTION_TIMED_OUT` on the other laptop?** Work through this on the **server PC**:
+
+1. Stop old terminals. Start API with `--host 0.0.0.0` and `npm run dev` again (Vite must show a **Network:** line with your IP).
+2. On the **server PC**, open `http://192.168.31.122:5173` (your IP) — not only `localhost`. If this fails, the dev servers are not bound to the LAN yet.
+3. Run `.\tools\check_lan.ps1` — confirms ports `0.0.0.0:5173` and `0.0.0.0:8000` are listening.
+4. If step 2 works on the server PC but the other laptop still times out → **Windows Firewall**: run **`tools\open_lan_firewall.ps1` as Administrator** on the server PC.
+5. Same Wi‑Fi for both; avoid **guest** Wi‑Fi (often blocks device-to-device). Test API first on the other laptop: `http://<ip>:8000/docs`.
+
 ---
 
 ## UI map (short)
