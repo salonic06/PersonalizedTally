@@ -168,6 +168,20 @@ def seed_demo(repo: Repo, *, root: Path, anchor: date) -> None:
         notes="Partial on Delta — demo",
     )
 
+    # Balances due today (invoice_date + credit_days → due_date == anchor) for Reminders walkthrough
+    due_today_specs = [
+        (d, "D-DUE-TODAY-1", 45, 18_000.00),
+        (e, "E-DUE-TODAY-2", 15, 9_500.00),
+    ]
+    for cust_id, inv_no, credit_days, taxable in due_today_specs:
+        inv_dt = anchor - timedelta(days=credit_days)
+        tot = _gst_total(taxable)
+        iid = repo.create_invoice(cust_id, inv_no, inv_dt, tot, excel_path=None)
+        repo.add_invoice_items(
+            iid,
+            [_line(1, demo_desc, "3907", 50.0, "Kg", taxable / 50.0)],
+        )
+
     repo.audit_log_append(
         action="demo_seed_completed",
         entity_type="system",

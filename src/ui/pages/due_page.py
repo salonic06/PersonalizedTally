@@ -243,12 +243,20 @@ class DuePage(QWidget):
         return b, a
 
     def set_filter(self, due_today: bool = False, overdue: bool = False) -> None:
+        """Apply status filter and widen due-date range so counts match dashboard alerts."""
+        t = date.today()
+        q = QDate(t.year, t.month, t.day)
         if due_today:
             self._filter = "due_today"
             self.filter_cb.setCurrentIndex(1)
+            self.due_from_de.setDate(q)
+            self.due_to_de.setDate(q)
         elif overdue:
             self._filter = "overdue"
             self.filter_cb.setCurrentIndex(2)
+            # Alerts count every overdue invoice; default month range hid older dues.
+            self.due_from_de.setDate(QDate(2000, 1, 1))
+            self.due_to_de.setDate(q)
         else:
             self._filter = "all"
             self.filter_cb.setCurrentIndex(0)
@@ -300,7 +308,12 @@ class DuePage(QWidget):
         only_due_today = self._filter == "due_today"
         only_overdue = self._filter == "overdue"
 
-        df, dt = self._due_range_bounds()
+        # Status filters (Due today / Overdue) must show every matching invoice, not only
+        # those whose due date falls in the month-range picker (used for "All Outstanding").
+        if only_due_today or only_overdue:
+            df, dt = None, None
+        else:
+            df, dt = self._due_range_bounds()
         if self._view == "customer":
             rows = self._repo.due_customer_rows(
                 today=today,
@@ -438,7 +451,14 @@ class DuePage(QWidget):
             self._due_sort_programmatic = False
 
         view_label = "Customer-wise totals" if self._view == "customer" else "Invoice-wise"
-        range_note = f"  |  Due {df.strftime('%d-%m-%Y')}–{dt.strftime('%d-%m-%Y')} (inclusive)"
+        if only_due_today:
+            range_note = "  |  Showing all invoices with balance due today (date range ignored)"
+        elif only_overdue:
+            range_note = "  |  Showing all overdue invoices (date range ignored)"
+        elif df is not None and dt is not None:
+            range_note = f"  |  Due {df.strftime('%d-%m-%Y')}–{dt.strftime('%d-%m-%Y')} (inclusive)"
+        else:
+            range_note = ""
         self.summary.setText(
             f"View: {view_label}{range_note}  |  Total outstanding: {total_outstanding:,.2f}  |  Rows: {len(rows)}"
         )

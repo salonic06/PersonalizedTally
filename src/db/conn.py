@@ -7,6 +7,9 @@ from pathlib import Path
 
 def connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
+    # Autocommit unless `transaction()` opens BEGIN — avoids nested-transaction errors
+    # when repo helpers call `transaction(conn)` after other statements.
+    conn.isolation_level = None
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")

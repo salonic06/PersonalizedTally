@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from src.audit_context import set_audit_operator_override
+from src.email_alerts import maybe_send_signin_digest
 from src.db.conn import connect
 from src.db.migrate import migrate
 from src.paths import get_paths
@@ -34,6 +35,15 @@ def main() -> int:
 
             username, role = dlg.credentials()
             set_audit_operator_override(username)
+
+            if role == "owner":
+                sent, signin_msg = maybe_send_signin_digest(repo)
+                if sent:
+                    QMessageBox.information(
+                        None,
+                        "Email sent",
+                        signin_msg,
+                    )
 
             window = MainWindow(repo=repo, role=role, username=username)
             apply_main_window_state(window)

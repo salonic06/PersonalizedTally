@@ -9,6 +9,9 @@ venv/
 dist/
 build/
 
+# Owner email digest secrets (SMTP)
+.env
+
 # Local SQLite (clone-friendly; app creates on first run)
 /data/*.db
 /data/*.db-wal

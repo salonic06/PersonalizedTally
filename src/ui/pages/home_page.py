@@ -5,6 +5,7 @@ from datetime import date
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from ...notifications import collect_notifications
 from ...repo import Repo
 
 
@@ -26,6 +27,13 @@ class HomePage(QWidget):
         sub.setWordWrap(True)
         sub.setStyleSheet("color:#64748b; font-size:13px; margin-bottom: 4px;")
         layout.addWidget(sub)
+
+        self._alerts = QLabel("")
+        self._alerts.setWordWrap(True)
+        self._alerts.setStyleSheet(
+            "font-size:13px; padding:10px 12px; border-radius:6px; background:#f8fafc; color:#334155;"
+        )
+        layout.addWidget(self._alerts)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -95,7 +103,7 @@ class HomePage(QWidget):
         hvl = QVBoxLayout(hint_box)
         hc = QLabel("Tip")
         hc.setStyleSheet("color:#64748b; font-size:12px;")
-        hv = QLabel("Use Due Today / Overdue in the header for collections focus.")
+        hv = QLabel("Use Alerts in the header for low stock, due today, and overdue invoices.")
         hv.setWordWrap(True)
         hv.setStyleSheet("font-size:13px; color:#334155;")
         hvl.addWidget(hc)
@@ -115,7 +123,35 @@ class HomePage(QWidget):
         scroll.setWidget(scroll_body)
         layout.addWidget(scroll, 1)
 
+    def refresh_alerts(self) -> None:
+        alerts = collect_notifications(self._repo, date.today())
+        if not alerts:
+            self._alerts.setText("No reminders — stock and customer dues look fine for today.")
+            self._alerts.setStyleSheet(
+                "font-size:13px; padding:10px 12px; border-radius:6px; background:#f0fdf4; color:#166534;"
+            )
+            return
+        critical = sum(1 for a in alerts if a.severity == "critical")
+        warn = sum(1 for a in alerts if a.severity == "warning")
+        parts = [f"{len(alerts)} reminder{'s' if len(alerts) != 1 else ''}"]
+        if critical:
+            parts.append(f"{critical} overdue")
+        if warn:
+            parts.append(f"{warn} stock")
+        preview = " · ".join(a.title for a in alerts[:3])
+        if len(alerts) > 3:
+            preview += f" · +{len(alerts) - 3} more"
+        self._alerts.setText(
+            f"{' — '.join(parts)}: {preview}. Click Reminders in the header for invoice details."
+        )
+        self._alerts.setStyleSheet(
+            "font-size:13px; padding:10px 12px; border-radius:6px; background:#fff7ed; color:#9a3412;"
+            if critical or warn
+            else "font-size:13px; padding:10px 12px; border-radius:6px; background:#eff6ff; color:#1e40af;"
+        )
+
     def refresh(self) -> None:
+        self.refresh_alerts()
         s = self._repo.dashboard_summary(date.today())
         self._v_cust.setText(str(s.customer_count))
         self._v_items.setText(str(s.item_count))

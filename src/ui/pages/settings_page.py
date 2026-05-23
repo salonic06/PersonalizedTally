@@ -5,6 +5,7 @@ import sys
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -18,8 +19,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from datetime import date
+
 from ...backup import backup_sqlite_database, backups_dir_for_db
 from ...db.conn import transaction
+from ...email_alerts import (
+    SETTING_EMAIL_ON_SIGNIN,
+    SETTING_LAST_DIGEST_DATE,
+    SETTING_OWNER_EMAIL,
+    load_dotenv,
+    send_owner_reminder_email,
+    smtp_config_status,
+)
+from ...owner_digest import build_owner_digest
+from ..digest_preview_dialog import DigestPreviewDialog
 from ...paths import get_paths
 from ...repo import Repo
 
@@ -76,6 +89,53 @@ class SettingsPage(QWidget):
 
         layout.addLayout(form)
 
+        alerts = QLabel("Email reminders (owner)")
+        alerts.setStyleSheet("font-size:15px; font-weight:600; margin-top:14px;")
+        layout.addWidget(alerts)
+        env_hint = QLabel(
+            "SMTP login lives in a .env file (copy .env.example → .env). "
+            "Use a Gmail App Password, not your normal password."
+        )
+        env_hint.setWordWrap(True)
+        env_hint.setStyleSheet("color:#64748b; font-size:12px;")
+        layout.addWidget(env_hint)
+
+        alert_form = QFormLayout()
+        self.owner_alert_email = QLineEdit()
+        self.owner_alert_email.setMinimumHeight(32)
+        self.owner_alert_email.setPlaceholderText("your.email@gmail.com")
+        alert_form.addRow("Send reminders to", self.owner_alert_email)
+        layout.addLayout(alert_form)
+
+        self.chk_email_on_signin = QCheckBox(
+            "Email digest when I sign in (at most once per day)"
+        )
+        self.chk_email_on_signin.setStyleSheet("font-size:13px;")
+        layout.addWidget(self.chk_email_on_signin)
+
+        self._smtp_status = QLabel("")
+        self._smtp_status.setWordWrap(True)
+        self._smtp_status.setStyleSheet("color:#475569; font-size:12px;")
+        layout.addWidget(self._smtp_status)
+
+        alert_btns = QHBoxLayout()
+        self.btn_preview_digest = QPushButton("Preview digest")
+        self.btn_preview_digest.setMinimumHeight(34)
+        self.btn_send_digest = QPushButton("Send email now")
+        self.btn_send_digest.setMinimumHeight(34)
+        alert_btns.addWidget(self.btn_preview_digest)
+        alert_btns.addWidget(self.btn_send_digest)
+        alert_btns.addStretch(1)
+        layout.addLayout(alert_btns)
+
+        schedule_hint = QLabel(
+            "If the PC is not on at a fixed time: turn on sign-in email above, or run "
+            "Send email now when you open the app. Task Scheduler only works while the PC is on."
+        )
+        schedule_hint.setWordWrap(True)
+        schedule_hint.setStyleSheet("color:#64748b; font-size:12px;")
+        layout.addWidget(schedule_hint)
+
         safety = QLabel("Data safety")
         safety.setStyleSheet("font-size:15px; font-weight:600; margin-top:14px;")
         layout.addWidget(safety)
@@ -109,6 +169,8 @@ class SettingsPage(QWidget):
         self.btn_save.clicked.connect(self._save)
         self.btn_backup_db.clicked.connect(self._backup_database)
         self.btn_open_backups.clicked.connect(self._open_backups_folder)
+        self.btn_preview_digest.clicked.connect(self._preview_digest)
+        self.btn_send_digest.clicked.connect(self._send_digest_email)
 
         self.load()
 
@@ -125,6 +187,19 @@ class SettingsPage(QWidget):
         fy = today.year if today.month >= 4 else (today.year - 1)
         default_out = str(get_paths().root / "invoices" / f"{fy}-{fy+1}")
         self.output_folder.setText(self._repo.get_setting("invoice_output_folder", default_out))
+        self.owner_alert_email.setText(self._repo.get_setting(SETTING_OWNER_EMAIL, ""))
+        self.chk_email_on_signin.setChecked(
+            self._repo.get_setting(SETTING_EMAIL_ON_SIGNIN, "").strip() == "1"
+        )
+        self._refresh_smtp_status()
+
+    def _refresh_smtp_status(self) -> None:
+        load_dotenv(get_paths().root / ".env")
+        ok, msg = smtp_config_status(self._repo)
+        self._smtp_status.setText(msg)
+        self._smtp_status.setStyleSheet(
+            "color:#166534; font-size:12px;" if ok else "color:#b45309; font-size:12px;"
+        )
 
     def _pick_template(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Select invoice template", filter="Excel (*.xlsx)")
@@ -147,10 +222,16 @@ class SettingsPage(QWidget):
 
         tpl_p = self.template_path.text().strip()
         out_p = self.output_folder.text().strip()
+        owner_mail = self.owner_alert_email.text().strip()
         with transaction(self._repo.conn):
             self._repo.set_setting("default_credit_days", str(credit_days))
             self._repo.set_setting("invoice_template_path", tpl_p)
             self._repo.set_setting("invoice_output_folder", out_p)
+            self._repo.set_setting(SETTING_OWNER_EMAIL, owner_mail)
+            self._repo.set_setting(
+                SETTING_EMAIL_ON_SIGNIN,
+                "1" if self.chk_email_on_signin.isChecked() else "0",
+            )
             self._repo.audit_log_append(
                 action="settings_saved",
                 entity_type="settings",
@@ -171,7 +252,35 @@ class SettingsPage(QWidget):
             pass
 
         QMessageBox.information(self, "Saved", "Settings saved.")
+        self._refresh_smtp_status()
         self.saved.emit()
+
+    def _preview_digest(self) -> None:
+        text = build_owner_digest(self._repo, date.today())
+        dlg = DigestPreviewDialog(text, self)
+        dlg.exec()
+
+    def _send_digest_email(self) -> None:
+        owner_mail = self.owner_alert_email.text().strip()
+        if owner_mail:
+            self._repo.set_setting(SETTING_OWNER_EMAIL, owner_mail)
+        load_dotenv(get_paths().root / ".env")
+        ok, msg = smtp_config_status(self._repo)
+        if not ok:
+            QMessageBox.warning(self, "Email not configured", msg)
+            return
+        try:
+            today = date.today()
+            to, _ = send_owner_reminder_email(self._repo, today)
+            self._repo.set_setting(SETTING_LAST_DIGEST_DATE, today.isoformat())
+        except Exception as e:
+            QMessageBox.critical(self, "Send failed", str(e))
+            return
+        QMessageBox.information(
+            self,
+            "Email sent",
+            f"Reminder digest sent to:\n{to}",
+        )
 
     def _backup_database(self) -> None:
         try:

@@ -1,224 +1,36 @@
 from __future__ import annotations
 
-import re
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
-from .db.conn import transaction
-from .audit_context import audit_operator_name, now_ist_wall_clock
-from .password_auth import verify_password
-from .domain import compute_due_date, receivable_aging_bucket
-
-
-def _d(s: str) -> date:
-    return date.fromisoformat(s)
-
-
-def _iso(d: date) -> str:
-    return d.isoformat()
-
-
-# Trailing \b fails when "S." is followed only by spaces — consume optional spaces after S.
-_RE_MS = re.compile(r"\bM\s*/\s*S\.?\s*", re.IGNORECASE)
-_RE_SHORT = re.compile(r"[^A-Za-z0-9]+")
-
-
-def normalize_customer_name(name: str) -> str:
-    # Remove common "M/s" business prefix wherever it appears.
-    name2 = _RE_MS.sub("", name)
-    name2 = re.sub(r"\s+", " ", name2).strip(" -:\t")
-    return name2.strip()
-
-
-def normalize_rm_short_code(s: str) -> str:
-    s = _RE_SHORT.sub("", (s or "").strip().upper())
-    if len(s) < 1:
-        raise ValueError("RM code required (letters/numbers only, no hyphens)")
-    if len(s) > 12:
-        s = s[:12]
-    return s
-
-
-def suggest_rm_short_code(name: str) -> str:
-    alnum = _RE_SHORT.sub("", (name or "").strip().upper())[:12]
-    if len(alnum) >= 1:
-        return alnum[:12]
-    return "RM"
-
-
-def normalize_batch_no(s: str) -> str:
-    """Production batch number segment (alphanumeric, no hyphens); used in batch_code B-DDMMYY-BATCHNO."""
-    t = _RE_SHORT.sub("", (s or "").strip().upper())
-    if len(t) < 1:
-        raise ValueError("Batch no. required (letters and digits only, no spaces)")
-    if len(t) > 20:
-        t = t[:20]
-    return t
-
-
-def format_batch_code(batch_no: str, batch_date: date) -> str:
-    """Full internal batch code: B-{DDMMYY}-{batch_no} (batch_no normalized)."""
-    bn = normalize_batch_no(batch_no)
-    dmy = batch_date.strftime("%d%m%y")
-    return f"B-{dmy}-{bn}"
-
-
-@dataclass(frozen=True)
-class DueRow:
-    customer_id: int
-    customer_name: str
-    invoice_id: int
-    invoice_no: str
-    invoice_date: date
-    due_date: date
-    outstanding: float
-    days_overdue: int
-    excel_path: str | None = None
-
-
-@dataclass(frozen=True)
-class CustomerDueRow:
-    customer_id: int
-    customer_name: str
-    outstanding: float
-    oldest_due_date: date
-    invoice_count: int
-    days_overdue: int
-
-
-def _sql_like_pattern(q: str) -> str:
-    s = (q or "").strip()
-    for a, b in (("\\", "\\\\"), ("%", "\\%"), ("_", "\\_")):
-        s = s.replace(a, b)
-    return f"%{s}%"
-
-
-@dataclass(frozen=True)
-class ReceivablesAgingTotals:
-    """Portfolio outstanding split by days past invoice due date."""
-
-    current: float
-    past_1_30: float
-    past_31_60: float
-    past_61_90: float
-    past_90_plus: float
-
-    def grand_total(self) -> float:
-        return (
-            self.current
-            + self.past_1_30
-            + self.past_31_60
-            + self.past_61_90
-            + self.past_90_plus
-        )
-
-
-@dataclass(frozen=True)
-class CustomerAgingRow:
-    customer_id: int
-    customer_name: str
-    current: float
-    past_1_30: float
-    past_31_60: float
-    past_61_90: float
-    past_90_plus: float
-
-    def row_total(self) -> float:
-        return (
-            self.current
-            + self.past_1_30
-            + self.past_31_60
-            + self.past_61_90
-            + self.past_90_plus
-        )
-
-
-@dataclass(frozen=True)
-class AuditLogRow:
-    id: int
-    created_at: str
-    action: str
-    entity_type: str
-    entity_id: int | None
-    detail: str
-    operator: str
-
-
-@dataclass(frozen=True)
-class DashboardSummary:
-    customer_count: int
-    item_count: int
-    raw_material_count: int
-    production_batch_count: int
-    invoice_count: int
-    payment_count: int
-    total_outstanding: float
-    due_today_invoice_count: int
-    overdue_invoice_count: int
-    # Calendar MTD / YTD (uses `today` passed to dashboard_summary).
-    mtd_sales_ex_gst: float
-    ytd_sales_ex_gst: float
-    mtd_collections: float
-    ytd_collections: float
-    mtd_invoice_count: int
-    ytd_invoice_count: int
-    mtd_cogs: float
-    ytd_cogs: float
-    mtd_gross_profit: float
-    ytd_gross_profit: float
-
-
-@dataclass(frozen=True)
-class InvoiceGrossProfit:
-    """Per-invoice margin on pre-GST revenue vs batch COGS (Phase 6)."""
-
-    invoice_id: int
-    invoice_no: str
-    invoice_date: date
-    customer_name: str
-    revenue_ex_gst: float
-    total_after_tax: float
-    cogs: float
-    gross_profit: float
-    line_count: int
-    lines_with_cogs: int
-    cogs_complete: bool
-
-
-@dataclass(frozen=True)
-class AnalyticsMonthRow:
-    year_month: str  # YYYY-MM
-    sales_ex_gst: float
-    bill_total_after_tax: float
-    est_output_gst: float
-    payments_received: float
-    cogs: float
-    gross_profit: float
-
-
-@dataclass(frozen=True)
-class AnalyticsYearRow:
-    year: str  # YYYY
-    sales_ex_gst: float
-    bill_total_after_tax: float
-    est_output_gst: float
-    payments_received: float
-    cogs: float
-    gross_profit: float
-
-
-@dataclass(frozen=True)
-class SearchHit:
-    kind: str  # customer | invoice | payment | item | raw_material | rm_lot
-    record_id: int
-    title: str
-    detail: str
-    customer_id: int | None = None
-    invoice_id: int | None = None
-    excel_path: str | None = None
-    raw_material_id: int | None = None
+from ..audit_context import audit_operator_name, now_ist_wall_clock
+from ..db.conn import transaction
+from ..domain import compute_due_date, receivable_aging_bucket
+from ..password_auth import verify_password
+from .helpers import (
+    format_batch_code,
+    iso_date as _iso,
+    normalize_batch_no,
+    normalize_customer_name,
+    normalize_rm_short_code,
+    parse_iso_date as _d,
+    sql_like_pattern,
+    suggest_rm_short_code,
+)
+from .models import (
+    AnalyticsMonthRow,
+    AnalyticsYearRow,
+    AuditLogRow,
+    CustomerAgingRow,
+    CustomerDueRow,
+    DashboardSummary,
+    DueRow,
+    InvoiceGrossProfit,
+    ReceivablesAgingTotals,
+    SearchHit,
+)
 
 
 class Repo:
@@ -242,7 +54,7 @@ class Repo:
 
     def update_own_password(self, username: str, old_password: str, new_password: str) -> None:
         """Replace password for ``username`` after verifying ``old_password``."""
-        from .password_auth import hash_password
+        from ..password_auth import hash_password
 
         u = (username or "").strip()
         if not u:
@@ -2347,7 +2159,7 @@ class Repo:
         q = (query or "").strip()
         if len(q) < 1:
             return []
-        pat = _sql_like_pattern(q)
+        pat = sql_like_pattern(q)
         lim = max(1, min(int(limit), 200))
         hits: list[SearchHit] = []
 

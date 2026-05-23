@@ -4,6 +4,68 @@
 
 Design direction: **zero-training UI** — large navigation, search always visible, clear tables and strong filters.
 
+**Portfolio:** targeting SDE / full-stack / ML roles — see [docs/PORTFOLIO.md](docs/PORTFOLIO.md). **UI refresh** plan: [docs/UI_ROADMAP.md](docs/UI_ROADMAP.md).
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph ui [PySide6 UI]
+    MW[MainWindow + nav]
+    Pages[Pages: Dashboard, Invoices, Due, Ledger, RM, Production, Payments, Analytics]
+    MW --> Pages
+  end
+
+  subgraph core [Application core]
+    Repo[src/repo — SQL and business rules]
+    Domain[src/domain — due dates, aging buckets]
+    Notif[src/notifications + email_alerts]
+    Excel[src/excel_generate — openpyxl invoices]
+  end
+
+  subgraph data [Data]
+    DB[(SQLite personalized_tally.db)]
+    Views[Views: invoice_balances, customer_outstanding]
+    Migrations[migrate.py on startup]
+  end
+
+  Pages --> Repo
+  Repo --> Domain
+  Repo --> DB
+  Migrations --> DB
+  DB --> Views
+  Views --> Repo
+  Pages --> Excel
+  Notif --> Repo
+  Tools[tools/seed_demo.py / send_owner_digest.py] --> Repo
+```
+
+| Layer | Responsibility |
+|--------|----------------|
+| **UI** | Qt widgets, filters, role-gated nav (owner vs worker) |
+| **Repo** | Customers, invoices, FIFO payments, RM lots, batches, COGS, ledger, search |
+| **SQLite** | Single-file DB, WAL, FKs, soft delete, audit log |
+| **Excel** | Template fill + GST totals (no Microsoft Excel required) |
+
+---
+
+## Screenshots & demo video
+
+Add files under [`docs/screenshots/`](docs/screenshots/) (see that folder’s README). Link them here when ready:
+
+| | |
+|--|--|
+| Dashboard | ![Dashboard](docs/screenshots/01-dashboard.png) *(add file)* |
+| Due / Outstanding | ![Due](docs/screenshots/02-due-outstanding.png) *(add file)* |
+| Reminders or Analytics | ![Reminders](docs/screenshots/03-reminders-or-analytics.png) *(add file)* |
+
+**Loom / walkthrough:** paste your link here after recording (60–90s: login → dashboard → due list → payment or reminders):  
+`https://www.loom.com/share/your-link`
+
+Quick capture: `python tools/seed_demo.py --yes` then `python app.py` → sign in as **owner**.
+
 ---
 
 ## Why this exists
@@ -118,7 +180,7 @@ Destructive: your previous **`data/personalized_tally.db`** contents are removed
 | `src/app_info.py` | Display name, DB filename constants |
 | `src/ui/main_window.py` | Main window, nav, global search |
 | `src/ui/pages/` | Feature screens |
-| `src/repo.py` | SQL / data access |
+| `src/repo/` | SQL / data access (`core.py`, `models.py`, `helpers.py`) |
 | `src/db/migrate.py` | Schema + views |
 | `src/excel_generate.py` | Invoice `.xlsx` generation (openpyxl, no COM) |
 | `src/backup.py` | SQLite hot-backup (`conn.backup`) → `data/backups/` |
@@ -142,9 +204,13 @@ GitHub Actions (`.github/workflows/ci.yml`) runs **pytest** on **Windows** on pu
 
 ## Roadmap snapshot
 
-Phases cover: foundation → ledger / dues / payments → **receivables aging** → template invoicing → raw materials & lots → production batches & consumption → batch costing & invoice COGS → analytics → **audit log** (invoice/payment, RM receipts, production batches, settings). Optional future: notifications, richer manufacturing records.
+**Shipped (desktop):** foundation → ledger / dues / payments (FIFO allocation) → receivables aging → template invoicing → raw materials & lots → production batches & consumption → batch costing & invoice COGS → analytics → audit log → local auth (owner/worker) → **alerts** (low stock reorder, due today, overdue).
 
-Deferred / out of scope today: GSTR exports, multi-user sync, full in-app historical invoice editing (regenerate-from-template workflow). **Audit log** covers invoice/payment money events; extending it to RM batches / settings is optional.
+**Tests:** `pytest` covers domain helpers, aging, excel totals, backup, login, audit log, **FIFO payment allocation**, **batch RM FIFO consumption**, **invoice/batch COGS**, **ledger running balance**, **trash/restore payments**, notifications, and email digest helpers.
+
+**Still optional / later:** richer manufacturing records (BMR-style), multi-user sync, full in-app historical invoice editing, web API + SPA (see below). **Owner email reminders** — see below.
+
+Deferred / out of scope today: multi-user sync, full in-app historical invoice editing (regenerate-from-template workflow).
 
 ---
 
@@ -153,7 +219,7 @@ Deferred / out of scope today: GSTR exports, multi-user sync, full in-app histor
 
 Moving this to a **browser app** is **not a small rename**: the **PySide6 desktop UI** is separate from a SPA; invoices today use **openpyxl** (still portable to a server). A practical path for a **product-style** rewrite is:
 
-1. **Keep** SQLite schema + migration ideas and **extract** more pure Python (domain rules, allocation math) with tests — already the direction of `src/domain.py` and testable helpers in `src/repo.py`.
+1. **Keep** SQLite schema + migration ideas and **extract** more pure Python (domain rules, allocation math) with tests — already the direction of `src/domain.py` and `src/repo/`.
 2. **Add** a small **HTTP API** (e.g. FastAPI) that wraps the same DB and business operations.
 3. **Rebuild** the UI as a **SPA** (React / Vue / Svelte) talking to that API; reuse **server-side** `openpyxl` (or add PDF) for invoices.
 
@@ -178,3 +244,57 @@ That is a **parallel track**, not a flip-a-flag migration — plan it as a secon
 | **Audit log** | Invoice/payment/stock/batch/settings events — **IST** time + operator — CSV export |
 | **Settings** | Template path, output folder, DB path, **backup** + open backups folder |
 | **Production** | Batches, consumption, batch costing |
+
+**Header — Reminders:** Low stock (on hand vs reorder), due today, and overdue invoices (compact list). **Overdue** opens the full list on Due / Outstanding.
+
+After `python tools/seed_demo.py --yes`, demo data includes **D-DUE-TODAY-1** and **E-DUE-TODAY-2** (balances due on the seed run date) plus overdue Gamma invoices for testing Reminders.
+
+---
+
+## Owner email reminders
+
+Emails **you** (owner) — not customers. Same content as **Reminders** (low stock, due today, overdue).
+
+| Piece | Role |
+|--------|------|
+| **Settings → Email reminders** | Set recipient, **Preview digest**, **Send email now** |
+| `tools/send_owner_digest.py` | Same send, for Task Scheduler / command line |
+| `.env.example` | Copy to `.env` — SMTP host, user, app password (gitignored) |
+
+### Setup (Gmail — free for personal use)
+
+1. Copy `.env.example` → `.env` in the project root.
+2. Gmail: 2-step verification → [App password](https://myaccount.google.com/apppasswords) for “Mail” → put in `SMTP_PASS` (not your normal password).
+3. Fill `SMTP_USER`, `SMTP_FROM`, and `OWNER_EMAIL` (usually the same Gmail).
+4. In the app: **Settings** → **Send reminders to** → **Save Settings** → **Send email now**.
+
+Or from the terminal:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python tools/send_owner_digest.py --dry-run
+python tools/send_owner_digest.py
+```
+
+### Email without Task Scheduler (PC not always on)
+
+Turn on **Settings → Email digest when I sign in (at most once per day)** and save. The first time you open the app each day as **owner**, it sends the same digest (if `.env` is set). No fixed time, no PC-on-at-9am requirement — only when you actually sign in.
+
+You can still use **Send email now** any time.
+
+### Daily email at a fixed time (optional)
+
+**Task Scheduler** only runs if the **PC is on** at that moment. Alternatives if that is not reliable:
+
+| Approach | Idea |
+|----------|------|
+| **Sign-in email** (above) | Best fit for a laptop — email when you open the app |
+| **Phone** | Gmail app on your phone notifies you when an email arrives |
+| **Always-on device** | Old laptop / Raspberry Pi at home running the same script on a schedule |
+| **Cloud VM** (~₹300–500/mo) | Copy `data/personalized_tally.db` to a small server; cron runs `send_owner_digest.py` — more setup |
+
+There is no way to send from **your local database** while the PC is off unless something else (another machine or cloud job) has a **current copy** of the DB and runs the script.
+
+### Cost
+
+**Gmail / Outlook SMTP:** free for normal personal volume. **SendGrid / Mailgun:** free tier then paid if you scale up — only needed if Gmail limits are an issue.

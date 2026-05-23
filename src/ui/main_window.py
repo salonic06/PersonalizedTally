@@ -23,8 +23,10 @@ from ..db.conn import connect
 from ..db.migrate import migrate
 from ..open_file import open_local_file
 from ..paths import get_paths
+from ..notifications import collect_notifications
 from ..repo import Repo, SearchHit
 from .change_password_dialog import ChangePasswordDialog
+from .notifications_dialog import NotificationsDialog
 from .pages.aging_page import AgingPage
 from .pages.analytics_page import AnalyticsPage
 from .pages.audit_log_page import AuditLogPage
@@ -107,11 +109,13 @@ class MainWindow(QMainWindow):
         self.search.returnPressed.connect(self._run_global_search)
         top_layout.addWidget(self.search, 1)
 
+        self.btn_alerts = QPushButton("Reminders")
         self.btn_due_today = QPushButton("Due Today")
         self.btn_overdue = QPushButton("Overdue")
         self.btn_add_payment = QPushButton("Add Payment")
-        for b in (self.btn_due_today, self.btn_overdue, self.btn_add_payment):
+        for b in (self.btn_alerts, self.btn_due_today, self.btn_overdue, self.btn_add_payment):
             b.setMinimumHeight(34)
+        top_layout.addWidget(self.btn_alerts)
         top_layout.addWidget(self.btn_due_today)
         top_layout.addWidget(self.btn_overdue)
         top_layout.addWidget(self.btn_add_payment)
@@ -180,6 +184,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(main, 1)
 
         self.nav.currentRowChanged.connect(self._on_nav_changed)
+        self.btn_alerts.clicked.connect(self._open_notifications)
         self.btn_due_today.clicked.connect(lambda: self._open_due(due_today=True))
         self.btn_overdue.clicked.connect(lambda: self._open_due(overdue=True))
         self.btn_add_payment.clicked.connect(self._open_add_payment)
@@ -200,6 +205,7 @@ class MainWindow(QMainWindow):
 
         self.page_due.refresh(today=date.today())
         self.page_home.refresh()
+        self._refresh_alerts_badge()
 
     def _populate_nav(self) -> None:
         self.nav.clear()
@@ -326,6 +332,36 @@ class MainWindow(QMainWindow):
             self.page_audit.refresh()
         elif idx == 10:
             self.page_trash.refresh()
+        self._refresh_alerts_badge()
+
+    def _refresh_alerts_badge(self) -> None:
+        n = len(collect_notifications(self._repo, date.today()))
+        if n > 0:
+            self.btn_alerts.setText(f"Reminders ({n})")
+            self.btn_alerts.setToolTip(
+                f"{n} reminder(s): stock below reorder, invoices due today, or overdue balances."
+            )
+        else:
+            self.btn_alerts.setText("Reminders")
+            self.btn_alerts.setToolTip(
+                "Stock below reorder level, invoices due today, and overdue customer balances."
+            )
+
+    def _open_notifications(self) -> None:
+        dlg = NotificationsDialog(self._repo, self)
+        dlg.open_nav.connect(self._on_notification_nav)
+        dlg.exec()
+        self._refresh_alerts_badge()
+        self.page_home.refresh_alerts()
+
+    def _on_notification_nav(self, action: str) -> None:
+        if action == "open_due_today":
+            self._open_due(due_today=True)
+        elif action == "open_overdue":
+            self._open_due(overdue=True)
+        elif action == "open_raw_materials":
+            self._set_nav_stack(5)
+            self.page_raw_materials.refresh_all()
 
     def _open_due(self, due_today: bool = False, overdue: bool = False) -> None:
         self._set_nav_stack(2)
