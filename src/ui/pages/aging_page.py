@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...repo import CustomerAgingRow, Repo
+from ..page_header import make_page_header
 
 
 class _SortItem(QTableWidgetItem):
@@ -41,10 +42,14 @@ class AgingPage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
+        layout.addWidget(
+            make_page_header(
+                "Receivables aging",
+                "Outstanding by days past due (Current, 1–30, 31–60, 61–90, 90+). Uses each invoice’s due date vs today.",
+            )
+        )
+
         header = QHBoxLayout()
-        title = QLabel("Receivables aging")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        header.addWidget(title)
         header.addStretch(1)
         self.btn_refresh = QPushButton("Refresh")
         self.btn_refresh.setMinimumHeight(32)
@@ -60,14 +65,6 @@ class AgingPage(QWidget):
         self.summary.setWordWrap(True)
         self.summary.setStyleSheet("color:#334155; font-size:13px;")
         layout.addWidget(self.summary)
-
-        hint = QLabel(
-            "Outstanding per invoice is assigned to a bucket using its due date vs today: "
-            "not yet due → Current; overdue → 1–30 / 31–60 / 61–90 / 90+ days past due."
-        )
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color:#64748b; font-size:12px;")
-        layout.addWidget(hint)
 
         self.table = QTableWidget()
         self.table.setColumnCount(7)

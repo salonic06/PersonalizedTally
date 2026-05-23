@@ -2,11 +2,11 @@
 
 Current: Fusion + light blue-gray theme (`src/ui/theme.py`), large nav, readable tables.
 
-## Phase 1 — Quick polish (1–2 days)
+## Phase 1 — Quick polish — done
 
-- Primary button style for **Save**, **Send email now**, **Save Payment**
-- Slightly larger nav labels + icons for top 5 screens
-- Consistent page title + subtitle pattern on every page
+- Primary button style for **Save**, **Send email now**, **Save Payment**, **Generate invoice**, **Add Payment** (header)
+- Nav icons for Dashboard, Invoices, Due, Ledger, Payments (`src/ui/theme.py`, `main_window.py`)
+- Page title + subtitle on every screen (`src/ui/page_header.py`)
 
 ## Phase 2 — Information hierarchy (2–3 days)
 

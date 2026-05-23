@@ -26,7 +26,9 @@ from PySide6.QtWidgets import (
 )
 
 from ...db.conn import transaction
-from ...repo import Repo, format_batch_code, normalize_batch_no
+from ...repo import Repo
+from ..page_header import make_page_header
+from ..theme import apply_primary_button, format_batch_code, normalize_batch_no
 from ..qt_icons import trash_icon_button_size, trash_row_icon
 
 # Full-row selection fill (avoids “outline only” on some Windows styles) + zebra striping
@@ -518,7 +520,8 @@ class BatchCostingTab(QWidget):
         self.lbl_cpk = QLabel("—")
         df.addRow("Blended cost per kg of output", self.lbl_cpk)
         self.btn_save = QPushButton("Save yield & conversion ₹/kg")
-        self.btn_save.setMinimumHeight(36)
+        self.btn_save.setMinimumHeight(38)
+        apply_primary_button(self.btn_save)
         self.btn_save.setEnabled(False)
         df.addRow(self.btn_save)
         root.addWidget(detail)
@@ -720,9 +723,12 @@ class ProductionPage(QWidget):
         self._repo = repo
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        title = QLabel("Production")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        lay.addWidget(title)
+        lay.addWidget(
+            make_page_header(
+                "Production",
+                "Create batches, record RM consumption (FIFO), and set yield and cost per kg.",
+            )
+        )
 
         self._tabs = QTabWidget()
         self._tab_batches = BatchesConsumptionTab(repo)

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...repo import Repo
+from ..page_header import make_page_header
 
 
 class _SortItem(QTableWidgetItem):
@@ -39,10 +40,14 @@ class AuditLogPage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
+        layout.addWidget(
+            make_page_header(
+                "Audit log",
+                "Who changed what — invoices, payments, stock, batches, and settings (IST timestamps).",
+            )
+        )
+
         head = QHBoxLayout()
-        title = QLabel("Audit log")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        head.addWidget(title)
         head.addStretch(1)
         self.btn_refresh = QPushButton("Refresh")
         self.btn_refresh.setMinimumHeight(32)

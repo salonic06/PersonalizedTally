@@ -35,6 +35,8 @@ from ...excel_generate import (
     generate_invoice_excel,
 )
 from ...repo import Repo
+from ..page_header import make_page_header
+from ..theme import apply_primary_button
 
 
 def _safe_filename(s: str) -> str:
@@ -57,9 +59,12 @@ class InvoicePage(QWidget):
         self._repo = repo
 
         outer = QVBoxLayout(self)
-        title = QLabel("Invoices")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        outer.addWidget(title)
+        outer.addWidget(
+            make_page_header(
+                "Invoices",
+                "Generate GST-style Excel from your template; line totals and grand total are computed in the app.",
+            )
+        )
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -186,6 +191,7 @@ class InvoicePage(QWidget):
 
         self.btn_generate = QPushButton("Preview & generate invoice (.xlsx)")
         self.btn_generate.setMinimumHeight(40)
+        apply_primary_button(self.btn_generate)
         layout.addWidget(self.btn_generate)
 
         hint = QLabel(

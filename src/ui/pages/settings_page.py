@@ -33,6 +33,8 @@ from ...email_alerts import (
 )
 from ...owner_digest import build_owner_digest
 from ..digest_preview_dialog import DigestPreviewDialog
+from ..page_header import make_page_header
+from ..theme import apply_primary_button
 from ...paths import get_paths
 from ...repo import Repo
 
@@ -57,9 +59,12 @@ class SettingsPage(QWidget):
         layout = QVBoxLayout(inner)
         scroll.setWidget(inner)
 
-        title = QLabel("Settings")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        layout.addWidget(title)
+        layout.addWidget(
+            make_page_header(
+                "Settings",
+                "Invoice template paths, owner email digests, and database backup.",
+            )
+        )
 
         form = QFormLayout()
 
@@ -122,7 +127,8 @@ class SettingsPage(QWidget):
         self.btn_preview_digest = QPushButton("Preview digest")
         self.btn_preview_digest.setMinimumHeight(34)
         self.btn_send_digest = QPushButton("Send email now")
-        self.btn_send_digest.setMinimumHeight(34)
+        self.btn_send_digest.setMinimumHeight(36)
+        apply_primary_button(self.btn_send_digest)
         alert_btns.addWidget(self.btn_preview_digest)
         alert_btns.addWidget(self.btn_send_digest)
         alert_btns.addStretch(1)
@@ -160,7 +166,8 @@ class SettingsPage(QWidget):
         layout.addWidget(hint_bak)
 
         self.btn_save = QPushButton("Save Settings")
-        self.btn_save.setMinimumHeight(36)
+        self.btn_save.setMinimumHeight(38)
+        apply_primary_button(self.btn_save)
         layout.addWidget(self.btn_save)
         layout.addStretch(1)
 

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...repo import Repo
+from ..page_header import make_page_header
 
 
 class TrashPage(QWidget):
@@ -27,16 +28,12 @@ class TrashPage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
-        title = QLabel("Trash (restore)")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        layout.addWidget(title)
-        hint = QLabel(
-            "Deleted records are hidden from ledgers and dues until restored. "
-            "Trashing a payment frees its amount from invoice allocations."
+        layout.addWidget(
+            make_page_header(
+                "Trash",
+                "Restore soft-deleted customers, invoices, payments, and products.",
+            )
         )
-        hint.setStyleSheet("color:#444; font-size:13px;")
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_customers_tab(), "Customers")

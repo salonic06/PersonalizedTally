@@ -21,7 +21,9 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...repo import Repo
+from ..page_header import make_page_header
 from ..qt_icons import trash_icon_button_size, trash_row_icon
+from ..theme import apply_primary_button
 
 
 class PaymentsPage(QWidget):
@@ -44,11 +46,15 @@ class PaymentsPage(QWidget):
         layout = QVBoxLayout(inner)
         scroll.setWidget(inner)
 
-        title = QLabel("Payments")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        layout.addWidget(title)
+        layout.addWidget(
+            make_page_header(
+                "Payments",
+                "Record receipts; amounts auto-allocate FIFO to the oldest open invoices per customer.",
+            )
+        )
 
-        card = QWidget()
+        card = QFrame()
+        card.setObjectName("formCard")
         card_layout = QFormLayout(card)
 
         self.customer_cb = QComboBox()
@@ -78,7 +84,8 @@ class PaymentsPage(QWidget):
 
         btn_row = QHBoxLayout()
         self.save_btn = QPushButton("Save Payment (Auto-Allocate FIFO)")
-        self.save_btn.setMinimumHeight(36)
+        self.save_btn.setMinimumHeight(38)
+        apply_primary_button(self.save_btn)
         btn_row.addWidget(self.save_btn)
         btn_row.addStretch(1)
         card_layout.addRow(btn_row)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -41,6 +42,7 @@ from .pages.seed_page import SeedPage
 from .pages.settings_page import SettingsPage
 from .pages.trash_page import TrashPage
 from .search_dialog import SearchResultsDialog
+from .theme import apply_accent_button, apply_primary_button
 from .window_geometry import save_main_window_state
 
 Role = Literal["owner", "worker"]
@@ -61,6 +63,15 @@ _NAV_DEF: tuple[tuple[str, int, frozenset[str]], ...] = (
     ("Setup (Seed Data)", 11, frozenset({"owner"})),
     ("Settings", 12, frozenset({"owner"})),
 )
+
+# Icons on the most-used nav entries (standard Fusion pixmaps).
+_NAV_ICONS: dict[str, QStyle.StandardPixmap] = {
+    "Dashboard": QStyle.StandardPixmap.SP_DirHomeIcon,
+    "Invoices": QStyle.StandardPixmap.SP_FileDialogDetailedView,
+    "Due / Outstanding": QStyle.StandardPixmap.SP_MessageBoxWarning,
+    "Customer Ledger": QStyle.StandardPixmap.SP_FileDialogContentsView,
+    "Payments": QStyle.StandardPixmap.SP_DialogApplyButton,
+}
 
 
 class MainWindow(QMainWindow):
@@ -114,7 +125,9 @@ class MainWindow(QMainWindow):
         self.btn_overdue = QPushButton("Overdue")
         self.btn_add_payment = QPushButton("Add Payment")
         for b in (self.btn_alerts, self.btn_due_today, self.btn_overdue, self.btn_add_payment):
-            b.setMinimumHeight(34)
+            b.setMinimumHeight(36)
+        apply_accent_button(self.btn_alerts)
+        apply_primary_button(self.btn_add_payment)
         top_layout.addWidget(self.btn_alerts)
         top_layout.addWidget(self.btn_due_today)
         top_layout.addWidget(self.btn_overdue)
@@ -141,9 +154,10 @@ class MainWindow(QMainWindow):
         self.btn_toggle_nav.setMinimumHeight(34)
 
         self.nav = QListWidget()
-        self.nav.setFixedWidth(220)
-        self.nav.setSpacing(6)
-        self.nav.setStyleSheet("QListWidget{font-size:14px;} QListWidget::item{padding:10px;} ")
+        self.nav.setObjectName("appNav")
+        self.nav.setFixedWidth(232)
+        self.nav.setSpacing(4)
+        self.nav.setIconSize(QSize(22, 22))
 
         self.stack = QStackedWidget()
 
@@ -212,7 +226,10 @@ class MainWindow(QMainWindow):
         self._nav_stack_indices = []
         for label, stack_idx, roles in _NAV_DEF:
             if self._role in roles:
-                QListWidgetItem(label, self.nav)
+                item = QListWidgetItem(label, self.nav)
+                pix = _NAV_ICONS.get(label)
+                if pix is not None:
+                    item.setIcon(self.style().standardIcon(pix))
                 self._nav_stack_indices.append(stack_idx)
         self.nav.setCurrentRow(0)
 

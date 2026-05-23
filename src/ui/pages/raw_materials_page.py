@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...repo import Repo
+from ..page_header import make_page_header
 from ..qt_icons import trash_icon_button_size, trash_row_icon
 
 
@@ -38,20 +39,12 @@ class RawMaterialsPage(QWidget):
         self._pending_rm_focus: int | None = None
 
         root = QVBoxLayout(self)
-        title = QLabel("Raw materials & stock")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        root.addWidget(title)
-        hint = QLabel(
-            "Add or rename raw materials in Setup (Seed Data) → Raw materials master. "
-            "Stock only appears after you use Receive stock (no automatic lots when saving an RM). "
-            "Quantities show 2 decimals. Lot codes: CODE-DDMMYY-N (N = 1–5 per RM per day). "
-            "RM list: Type is the category field from the master; the RM code column uses more width. "
-            "Rows with a reorder level set are highlighted when on hand is below that level. "
-            "Removing a lot deletes that row permanently (not Trash)."
+        root.addWidget(
+            make_page_header(
+                "Raw materials & stock",
+                "Receive lots into stock, view balances, and manage lot codes (CODE-DDMMYY-N).",
+            )
         )
-        hint.setStyleSheet("color:#444; font-size:13px;")
-        hint.setWordWrap(True)
-        root.addWidget(hint)
 
         tabs = QTabWidget()
         root.addWidget(tabs, 1)

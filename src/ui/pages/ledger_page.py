@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from ...db.conn import transaction
 from ...open_file import open_local_file
 from ...repo import Repo
+from ..page_header import make_page_header
 from ...safe_delete import delete_invoice_excel_if_allowed
 from ..qt_icons import trash_icon_button_size, trash_row_icon
 from ..trash_invoice_dialog import (
@@ -38,12 +39,12 @@ class LedgerPage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
-        title_row = QHBoxLayout()
-        title = QLabel("Customer Ledger")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        title_row.addWidget(title)
-        title_row.addStretch(1)
-        layout.addLayout(title_row)
+        layout.addWidget(
+            make_page_header(
+                "Customer Ledger",
+                "Running balance for one customer — invoices increase balance, payments reduce it.",
+            )
+        )
 
         pick_row = QHBoxLayout()
         pick_row.addWidget(QLabel("Customer"))

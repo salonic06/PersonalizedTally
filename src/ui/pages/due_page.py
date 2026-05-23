@@ -22,6 +22,7 @@ from ...db.conn import transaction
 from ...open_file import open_local_file
 from ...repo import Repo
 from ...safe_delete import delete_invoice_excel_if_allowed
+from ..page_header import make_page_header
 from ..trash_invoice_dialog import (
     TrashInvoiceChoice,
     confirm_invoice_permanent_delete,
@@ -64,11 +65,14 @@ class DuePage(QWidget):
         self._view = "invoice"  # invoice|customer
 
         layout = QVBoxLayout(self)
-        header = QHBoxLayout()
+        layout.addWidget(
+            make_page_header(
+                "Due / Outstanding",
+                "Open invoice balances by due date; switch to customer totals or filter overdue / due today.",
+            )
+        )
 
-        title = QLabel("Due / Outstanding")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        header.addWidget(title)
+        header = QHBoxLayout()
         header.addStretch(1)
 
         self.view_cb = QComboBox()

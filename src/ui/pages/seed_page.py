@@ -22,7 +22,8 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...excel_import import iter_invoice_excels, read_invoice_from_excel
-from ...repo import Repo, normalize_rm_short_code
+from ...repo import Repo
+from ..page_header import make_page_header, normalize_rm_short_code
 
 
 class SeedPage(QWidget):
@@ -51,9 +52,12 @@ class SeedPage(QWidget):
         layout = QVBoxLayout(scroll_inner)
         scroll.setWidget(scroll_inner)
 
-        title = QLabel("Setup (Seed Data)")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        layout.addWidget(title)
+        layout.addWidget(
+            make_page_header(
+                "Setup (Seed Data)",
+                "Masters, bulk invoice import, and demo fixtures — owner only.",
+            )
+        )
 
         # --- Customer ---
         cust_box = QWidget()

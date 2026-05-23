@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QVBoxLay
 
 from ...notifications import collect_notifications
 from ...repo import Repo
+from ..page_header import make_page_header
 
 
 class HomePage(QWidget):
@@ -15,18 +16,12 @@ class HomePage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
-        title = QLabel("Dashboard")
-        title.setStyleSheet("font-size:22px; font-weight:600;")
-        layout.addWidget(title)
-
-        sub = QLabel(
-            "Snapshot for today’s calendar date — receivables from open balances; "
-            "sales use invoice line revenue (ex‑GST); collections use payment dates; "
-            "gross profit uses batch COGS where invoice lines link to costed batches."
+        layout.addWidget(
+            make_page_header(
+                "Dashboard",
+                "Today’s snapshot — open receivables, MTD/YTD sales and collections, gross profit where batches are costed.",
+            )
         )
-        sub.setWordWrap(True)
-        sub.setStyleSheet("color:#64748b; font-size:13px; margin-bottom: 4px;")
-        layout.addWidget(sub)
 
         self._alerts = QLabel("")
         self._alerts.setWordWrap(True)

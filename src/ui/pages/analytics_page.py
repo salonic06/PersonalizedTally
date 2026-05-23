@@ -34,6 +34,7 @@ _KPI_CAP_STYLE = "color:#475569; font-size:12px; font-weight:600;"
 _KPI_VAL_STYLE = "color:#0f172a; font-size:19px; font-weight:700;"
 
 from ...repo import AnalyticsMonthRow, AnalyticsYearRow, InvoiceGrossProfit, Repo
+from ..page_header import make_page_header
 
 
 class _NumItem(QTableWidgetItem):
@@ -328,20 +329,13 @@ class AnalyticsPage(QWidget):
         self._repo = repo
 
         layout = QVBoxLayout(self)
-        title = QLabel("Analytics")
-        title.setStyleSheet("font-size:20px; font-weight:600;")
-        layout.addWidget(title)
-
-        hint = QLabel(
-            "Gross profit uses taxable line amounts (rate × qty, ex‑GST) minus batch cost/kg × qty "
-            "where a production batch with costing is linked. The invoice date filter drives billed "
-            "sales / COGS / GP; cash collected uses payment dates in the same calendar window "
-            '(see KPI “Cash in”). Charts aggregate by invoice month for billed activity and show '
-            "collections credited to those months for comparison."
+        layout.addWidget(
+            make_page_header(
+                "Analytics",
+                "Sales, collections, margin, and concentration — invoice date filter for billed activity; "
+                "cash uses payment dates in the same window.",
+            )
         )
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color:#475569; font-size:13px;")
-        layout.addWidget(hint)
 
         filt = QHBoxLayout()
         filt.addWidget(QLabel("Invoice date"))
