@@ -12,42 +12,44 @@ Design direction: **zero-training UI** — large navigation, search always visib
 
 ```mermaid
 flowchart TB
-  subgraph ui [PySide6 UI]
-    MW[MainWindow + nav]
-    Pages[Pages: Dashboard, Invoices, Due, Ledger, RM, Production, Payments, Analytics]
-    MW --> Pages
+  subgraph ui [PySide6 desktop]
+    MW[Main window]
+    PG[Pages]
+    MW --> PG
   end
 
   subgraph core [Application core]
-    Repo[src/repo — SQL and business rules]
-    Domain[src/domain — due dates, aging buckets]
-    Notif[src/notifications + email_alerts]
-    Excel[src/excel_generate — openpyxl invoices]
+    Repo[Repo layer]
+    Domain[Domain rules]
+    Notif[Reminders]
+    Excel[Excel export]
   end
 
   subgraph data [Data]
-    DB[(SQLite personalized_tally.db)]
-    Views[Views: invoice_balances, customer_outstanding]
-    Migrations[migrate.py on startup]
+    DB[(SQLite DB)]
+    Views[SQL views]
+    Mig[Migrations]
   end
 
-  Pages --> Repo
+  PG --> Repo
   Repo --> Domain
   Repo --> DB
-  Migrations --> DB
+  Mig --> DB
   DB --> Views
   Views --> Repo
-  Pages --> Excel
+  PG --> Excel
   Notif --> Repo
-  Tools[tools/seed_demo.py / send_owner_digest.py] --> Repo
+  Tools[CLI tools] --> Repo
 ```
 
-| Layer | Responsibility |
-|--------|----------------|
-| **UI** | Qt widgets, filters, role-gated nav (owner vs worker) |
-| **Repo** | Customers, invoices, FIFO payments, RM lots, batches, COGS, ledger, search |
-| **SQLite** | Single-file DB, WAL, FKs, soft delete, audit log |
-| **Excel** | Template fill + GST totals (no Microsoft Excel required) |
+| Box | Meaning |
+|-----|---------|
+| **Pages** | Dashboard, invoices, due, ledger, stock, production, payments, analytics |
+| **Repo layer** | `src/repo` — SQL + FIFO, COGS, ledger |
+| **Domain rules** | `src/domain` — due dates, aging buckets |
+| **Reminders** | `src/notifications`, `src/email_alerts` |
+| **Excel export** | `src/excel_generate` (openpyxl) |
+| **CLI tools** | `seed_demo.py`, `send_owner_digest.py` |
 
 ---
 
