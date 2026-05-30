@@ -30,8 +30,6 @@ from PySide6.QtWidgets import (
 )
 
 
-_KPI_CAP_STYLE = "color:#475569; font-size:12px; font-weight:600;"
-_KPI_VAL_STYLE = "color:#0f172a; font-size:19px; font-weight:700;"
 
 from ...repo import AnalyticsMonthRow, AnalyticsYearRow, InvoiceGrossProfit, Repo
 from ..page_header import make_page_header
@@ -380,10 +378,10 @@ class AnalyticsPage(QWidget):
             vl = QVBoxLayout(box)
             vl.setSpacing(6)
             c = QLabel(caption)
-            c.setStyleSheet(_KPI_CAP_STYLE)
+            c.setObjectName("kpiCaption")
             c.setWordWrap(True)
             v = QLabel("—")
-            v.setStyleSheet(_KPI_VAL_STYLE)
+            v.setObjectName("kpiValue")
             v.setWordWrap(True)
             v.setMinimumHeight(30)
             vl.addWidget(c)
@@ -484,7 +482,7 @@ class AnalyticsPage(QWidget):
         self.tbl_top.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_top.setMaximumHeight(240)
         self.tbl_top.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_top.setStyleSheet("QTableWidget{font-size:13px;} QHeaderView::section{font-size:12px;}")
+        self.tbl_top.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_top.setAlternatingRowColors(True)
         top_lay.addWidget(self.tbl_top)
         sum_lay.addWidget(top_box)
@@ -508,7 +506,7 @@ class AnalyticsPage(QWidget):
         self.tbl_month.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_month.setAlternatingRowColors(True)
         self.tbl_month.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_month.setStyleSheet("QTableWidget{font-size:13px;} QHeaderView::section{font-size:12px;}")
+        self.tbl_month.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_month.setMinimumHeight(200)
         sum_lay.addWidget(self.tbl_month)
 
@@ -531,7 +529,7 @@ class AnalyticsPage(QWidget):
         self.tbl_year.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_year.setAlternatingRowColors(True)
         self.tbl_year.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_year.setStyleSheet("QTableWidget{font-size:13px;} QHeaderView::section{font-size:12px;}")
+        self.tbl_year.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_year.setMinimumHeight(160)
         sum_lay.addWidget(self.tbl_year)
 

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from ...repo import Repo
 from ..page_header import make_page_header
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 
 
 class _SortItem(QTableWidgetItem):
@@ -89,6 +90,11 @@ class AuditLogPage(QWidget):
         rows = self._repo.list_audit_log(limit=800)
         self._cached = []
         self.table.setSortingEnabled(False)
+        if not rows:
+            set_table_empty_state(self.table, "No audit entries recorded yet.")
+            self.table.setSortingEnabled(True)
+            return
+        clear_table_body_for_fill(self.table)
         self.table.setRowCount(len(rows))
         for i, r in enumerate(rows):
             self._cached.append(

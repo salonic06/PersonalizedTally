@@ -24,4 +24,4 @@ def trash_row_icon() -> QIcon:
 
 
 def trash_icon_button_size() -> QSize:
-    return QSize(18, 18)
+    return QSize(20, 20)

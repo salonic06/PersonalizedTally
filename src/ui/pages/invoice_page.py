@@ -290,7 +290,9 @@ class InvoicePage(QWidget):
         rate.setValidator(self._item_validator)
 
         btn_remove = QPushButton("Remove")
+        btn_remove.setObjectName("btnTableAction")
         btn_remove.setMinimumHeight(32)
+        btn_remove.setCursor(Qt.CursorShape.PointingHandCursor)
 
         row_layout.addWidget(item_cb, 3)
         row_layout.addWidget(QLabel("HSN"), 0)

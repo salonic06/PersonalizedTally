@@ -3,21 +3,23 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
+    QTreeWidgetItem,
+    QApplication,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QStackedWidget,
-    QStyle,
     QVBoxLayout,
     QWidget,
 )
+
+from ..db.conn import transaction
 
 from ..app_info import APP_DISPLAY_NAME
 from ..db.conn import connect
@@ -42,37 +44,43 @@ from .pages.seed_page import SeedPage
 from .pages.settings_page import SettingsPage
 from .pages.trash_page import TrashPage
 from .search_dialog import SearchResultsDialog
-from .theme import apply_accent_button, apply_primary_button
+from .nav_brand import make_nav_brand
+from .nav_tree import NavTreeWidget
+from .theme import (
+    SETTING_UI_DARK_MODE,
+    apply_nav_tree_palette,
+    apply_reminders_button,
+    apply_theme,
+    apply_theme_from_repo,
+    dark_mode_from_setting,
+    is_dark_mode_enabled,
+    nav_section_color,
+)
+from .toggle_switch import ToggleSwitch
 from .window_geometry import save_main_window_state
 
 Role = Literal["owner", "worker"]
 
-# label, stack index, roles allowed to see nav entry
+# label, stack index (-1 = section header), roles allowed to see entry
 _NAV_DEF: tuple[tuple[str, int, frozenset[str]], ...] = (
+    ("Overview", -1, frozenset({"owner", "worker"})),
     ("Dashboard", 0, frozenset({"owner", "worker"})),
+    ("Sales", -1, frozenset({"owner", "worker"})),
     ("Invoices", 1, frozenset({"owner", "worker"})),
     ("Due / Outstanding", 2, frozenset({"owner", "worker"})),
     ("Receivables aging", 3, frozenset({"owner", "worker"})),
     ("Customer Ledger", 4, frozenset({"owner", "worker"})),
+    ("Payments", 7, frozenset({"owner", "worker"})),
+    ("Stock", -1, frozenset({"owner", "worker"})),
     ("Raw materials & stock", 5, frozenset({"owner", "worker"})),
     ("Production", 6, frozenset({"owner", "worker"})),
-    ("Payments", 7, frozenset({"owner", "worker"})),
+    ("Administration", -1, frozenset({"owner"})),
     ("Analytics", 8, frozenset({"owner"})),
     ("Audit log", 9, frozenset({"owner"})),
     ("Trash", 10, frozenset({"owner"})),
     ("Setup (Seed Data)", 11, frozenset({"owner"})),
     ("Settings", 12, frozenset({"owner"})),
 )
-
-# Icons on the most-used nav entries (standard Fusion pixmaps).
-_NAV_ICONS: dict[str, QStyle.StandardPixmap] = {
-    "Dashboard": QStyle.StandardPixmap.SP_DirHomeIcon,
-    "Invoices": QStyle.StandardPixmap.SP_FileDialogDetailedView,
-    "Due / Outstanding": QStyle.StandardPixmap.SP_MessageBoxWarning,
-    "Customer Ledger": QStyle.StandardPixmap.SP_FileDialogContentsView,
-    "Payments": QStyle.StandardPixmap.SP_DialogApplyButton,
-}
-
 
 class MainWindow(QMainWindow):
     #: When ``Sign out`` runs, set True so ``app.main`` can show the login dialog again.
@@ -110,24 +118,35 @@ class MainWindow(QMainWindow):
         root_layout = QVBoxLayout(root)
 
         top = QWidget()
+        top.setObjectName("headerBar")
         top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setContentsMargins(12, 10, 12, 10)
 
-        top_layout.addWidget(QLabel("Search"))
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Customer, invoice, payment, product, RM, lot / supplier ref / notes… (Enter)")
+        self.search.setObjectName("searchInput")
+        self.search.setPlaceholderText("Search customers, invoices, payments, products… (Enter)")
         self.search.setMinimumHeight(34)
         self.search.returnPressed.connect(self._run_global_search)
         top_layout.addWidget(self.search, 1)
+
+        dark_lay = QHBoxLayout()
+        dark_lay.setSpacing(8)
+        dark_lbl = QLabel("Dark")
+        dark_lbl.setObjectName("mutedHint")
+        self.toggle_dark = ToggleSwitch()
+        self.toggle_dark.setToolTip("Switch between light and dark theme")
+        self.toggle_dark.toggled.connect(self._on_dark_mode_toggled)
+        dark_lay.addWidget(dark_lbl)
+        dark_lay.addWidget(self.toggle_dark)
+        top_layout.addLayout(dark_lay)
 
         self.btn_alerts = QPushButton("Reminders")
         self.btn_due_today = QPushButton("Due Today")
         self.btn_overdue = QPushButton("Overdue")
         self.btn_add_payment = QPushButton("Add Payment")
         for b in (self.btn_alerts, self.btn_due_today, self.btn_overdue, self.btn_add_payment):
-            b.setMinimumHeight(36)
-        apply_accent_button(self.btn_alerts)
-        apply_primary_button(self.btn_add_payment)
+            b.setMinimumHeight(34)
+        apply_reminders_button(self.btn_alerts)
         top_layout.addWidget(self.btn_alerts)
         top_layout.addWidget(self.btn_due_today)
         top_layout.addWidget(self.btn_overdue)
@@ -153,11 +172,17 @@ class MainWindow(QMainWindow):
         self.btn_toggle_nav.setFixedWidth(36)
         self.btn_toggle_nav.setMinimumHeight(34)
 
-        self.nav = QListWidget()
+        nav_panel = QWidget()
+        nav_panel.setObjectName("navPanel")
+        nav_panel.setFixedWidth(252)
+        nav_lay = QVBoxLayout(nav_panel)
+        nav_lay.setContentsMargins(8, 8, 8, 8)
+        nav_lay.addWidget(make_nav_brand(APP_DISPLAY_NAME))
+        self.nav = NavTreeWidget()
         self.nav.setObjectName("appNav")
-        self.nav.setFixedWidth(232)
-        self.nav.setSpacing(4)
-        self.nav.setIconSize(QSize(22, 22))
+        self.nav.setHeaderHidden(True)
+        nav_lay.addWidget(self.nav, 1)
+        self._nav_panel = nav_panel
 
         self.stack = QStackedWidget()
 
@@ -189,15 +214,16 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.page_seed)  # 11
         self.stack.addWidget(self.page_settings)  # 12
 
-        self._nav_stack_indices: list[int] = []
+        self._last_nav_page: QTreeWidgetItem | None = None
         self._populate_nav()
+        self._sync_dark_mode_checkbox()
 
         main_layout.addWidget(self.btn_toggle_nav, 0, Qt.AlignmentFlag.AlignTop)
-        main_layout.addWidget(self.nav)
+        main_layout.addWidget(nav_panel)
         main_layout.addWidget(self.stack, 1)
         root_layout.addWidget(main, 1)
 
-        self.nav.currentRowChanged.connect(self._on_nav_changed)
+        self.nav.itemSelectionChanged.connect(self._on_nav_changed)
         self.btn_alerts.clicked.connect(self._open_notifications)
         self.btn_due_today.clicked.connect(lambda: self._open_due(due_today=True))
         self.btn_overdue.clicked.connect(lambda: self._open_due(overdue=True))
@@ -221,22 +247,92 @@ class MainWindow(QMainWindow):
         self.page_home.refresh()
         self._refresh_alerts_badge()
 
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme_from_repo(app, self._repo)
+        self._apply_nav_tree_theme()
+
     def _populate_nav(self) -> None:
         self.nav.clear()
-        self._nav_stack_indices = []
+        section = None
+        first_page = None
+        section_font = QFont()
+        section_font.setPixelSize(12)
+        section_font.setWeight(QFont.Weight.Bold)
+        section_brush = QBrush(nav_section_color(self._repo))
+
         for label, stack_idx, roles in _NAV_DEF:
-            if self._role in roles:
-                item = QListWidgetItem(label, self.nav)
-                pix = _NAV_ICONS.get(label)
-                if pix is not None:
-                    item.setIcon(self.style().standardIcon(pix))
-                self._nav_stack_indices.append(stack_idx)
-        self.nav.setCurrentRow(0)
+            if self._role not in roles:
+                continue
+            if stack_idx < 0:
+                section = NavTreeWidget.make_section(label)
+                section.setFont(0, section_font)
+                section.setForeground(0, section_brush)
+                self.nav.addTopLevelItem(section)
+                continue
+            page = NavTreeWidget.make_page(label, stack_idx)
+            if section is not None:
+                section.addChild(page)
+            else:
+                self.nav.addTopLevelItem(page)
+            if first_page is None:
+                first_page = page
+
+        if first_page is not None:
+            self.nav.setCurrentItem(first_page)
+            self._last_nav_page = first_page
+        self.nav.expand_all_sections()
+
+    def _iter_nav_pages(self):
+        for i in range(self.nav.topLevelItemCount()):
+            top = self.nav.topLevelItem(i)
+            if top is None:
+                continue
+            if top.childCount() > 0:
+                for j in range(top.childCount()):
+                    child = top.child(j)
+                    if child is not None:
+                        yield child
+            elif top.data(0, Qt.ItemDataRole.UserRole) is not None:
+                yield top
+
+    def _apply_nav_tree_theme(self) -> None:
+        apply_nav_tree_palette(self.nav, dark=is_dark_mode_enabled(self._repo))
+
+    def _sync_dark_mode_checkbox(self) -> None:
+        self.toggle_dark.blockSignals(True)
+        self.toggle_dark.setChecked(
+            dark_mode_from_setting(self._repo.get_setting(SETTING_UI_DARK_MODE, "0"))
+        )
+        self.toggle_dark.blockSignals(False)
+
+    def _on_dark_mode_toggled(self, dark: bool) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, dark=dark)
+        with transaction(self._repo.conn):
+            self._repo.set_setting(SETTING_UI_DARK_MODE, "1" if dark else "0")
+        self._apply_nav_tree_theme()
+        self._refresh_nav_section_colors()
+        self.page_home.refresh()
+        idx = self.stack.currentIndex()
+        self._refresh_stack_page(idx)
+
+    def _refresh_nav_section_colors(self) -> None:
+        color = QBrush(nav_section_color(self._repo))
+        for i in range(self.nav.topLevelItemCount()):
+            top = self.nav.topLevelItem(i)
+            if top is not None and NavTreeWidget.is_section(top):
+                top.setForeground(0, color)
+        self.nav.expand_all_sections()
 
     def _set_nav_stack(self, stack_idx: int, *, quiet: bool = False) -> bool:
-        try:
-            nav_row = self._nav_stack_indices.index(stack_idx)
-        except ValueError:
+        target: QTreeWidgetItem | None = None
+        for item in self._iter_nav_pages():
+            if item.data(0, Qt.ItemDataRole.UserRole) == stack_idx:
+                target = item
+                break
+        if target is None:
             if not quiet:
                 QMessageBox.information(
                     self,
@@ -244,8 +340,11 @@ class MainWindow(QMainWindow):
                     "That screen is only available when signed in as owner.",
                 )
             return False
+        parent = target.parent()
+        if parent is not None:
+            parent.setExpanded(True)
         self.nav.blockSignals(True)
-        self.nav.setCurrentRow(nav_row)
+        self.nav.setCurrentItem(target)
         self.nav.blockSignals(False)
         self.stack.setCurrentIndex(stack_idx)
         self._refresh_stack_page(stack_idx)
@@ -281,6 +380,7 @@ class MainWindow(QMainWindow):
             self.page_seed.reload_rm_pick()
         elif stack_idx == 12:
             self.page_settings.load()
+            self._sync_dark_mode_checkbox()
 
     def _change_password(self) -> None:
         if not self._username:
@@ -303,7 +403,7 @@ class MainWindow(QMainWindow):
         self.close()
 
     def _toggle_nav(self) -> None:
-        self.nav.setVisible(not self.nav.isVisible())
+        self._nav_panel.setVisible(not self._nav_panel.isVisible())
 
     def _on_fg_help_navigate(self, where: str) -> None:
         if where == "seed_data":
@@ -313,12 +413,23 @@ class MainWindow(QMainWindow):
             self.page_batches.refresh_all()
             self.page_batches.open_batch_costing_tab()
 
-    def _on_nav_changed(self, row: int) -> None:
-        if row < 0 or row >= len(self._nav_stack_indices):
+    def _on_nav_changed(self) -> None:
+        item = self.nav.currentItem()
+        if NavTreeWidget.is_section(item):
+            if self._last_nav_page is not None:
+                self.nav.blockSignals(True)
+                self.nav.setCurrentItem(self._last_nav_page)
+                self.nav.blockSignals(False)
             return
-        stack_idx = self._nav_stack_indices[row]
-        self.stack.setCurrentIndex(stack_idx)
-        self._refresh_stack_page(stack_idx)
+        if not NavTreeWidget.is_page(item):
+            return
+        self._last_nav_page = item
+        stack_idx = item.data(0, Qt.ItemDataRole.UserRole)
+        idx = int(stack_idx)
+        if self.stack.currentIndex() == idx:
+            return
+        self.stack.setCurrentIndex(idx)
+        self._refresh_stack_page(idx)
 
     def _refresh_due_if_visible(self) -> None:
         if self.stack.currentIndex() == 2:

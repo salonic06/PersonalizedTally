@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from ...repo import CustomerAgingRow, Repo
 from ..page_header import make_page_header
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 
 
 class _SortItem(QTableWidgetItem):
@@ -104,6 +105,14 @@ class AgingPage(QWidget):
         )
 
         self.table.setSortingEnabled(False)
+        if not cust_rows:
+            set_table_empty_state(
+                self.table, "No open receivables — nothing in the aging buckets as of today."
+            )
+            self.table.setSortingEnabled(True)
+            return
+
+        clear_table_body_for_fill(self.table)
         self.table.setRowCount(len(cust_rows))
         for i, row in enumerate(cust_rows):
             nm = _SortItem(row.customer_name)

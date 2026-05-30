@@ -22,8 +22,9 @@ from ...db.conn import transaction
 from ...open_file import open_local_file
 from ...repo import Repo
 from ..page_header import make_page_header
+from ..table_action import configure_action_column, make_trash_cell, polish_data_table
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 from ...safe_delete import delete_invoice_excel_if_allowed
-from ..qt_icons import trash_icon_button_size, trash_row_icon
 from ..trash_invoice_dialog import (
     TrashInvoiceChoice,
     confirm_invoice_permanent_delete,
@@ -98,11 +99,10 @@ class LedgerPage(QWidget):
             ["Date", "Type", "Reference", "Debit", "Credit", "Balance", ""]
         )
         self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().setVisible(False)
+        polish_data_table(self.table)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setStyleSheet("QTableWidget{font-size:13px;}")
         self.table.itemSelectionChanged.connect(self._on_sel)
         self.table.itemDoubleClicked.connect(self._on_double)
         header = self.table.horizontalHeader()
@@ -114,8 +114,7 @@ class LedgerPage(QWidget):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.Stretch)
-        header.setSectionResizeMode(6, QHeaderView.Fixed)
-        self.table.setColumnWidth(6, 40)
+        configure_action_column(self.table, 6)
         layout.addWidget(self.table, 1)
 
         self.customer_cb.currentIndexChanged.connect(self.refresh)
@@ -251,17 +250,29 @@ class LedgerPage(QWidget):
 
     def refresh(self) -> None:
         if self.customer_cb.currentIndex() < 0:
-            self.table.setRowCount(0)
+            set_table_empty_state(self.table, "No customers yet — add customers under Setup (Seed Data).")
             self.summary.setText("No customers yet.")
             return
 
         customer_id = int(self.customer_cb.currentData())
         ef, et = self._entry_bounds()
         rows = self._repo.ledger_rows(customer_id, entry_from=ef, entry_to=et)
-        trash_ico = trash_row_icon()
-        icon_sz = trash_icon_button_size()
+        if not rows:
+            if self.entry_range_cb.isChecked():
+                set_table_empty_state(
+                    self.table, "No ledger entries in the selected date range."
+                )
+            else:
+                set_table_empty_state(
+                    self.table,
+                    "No invoices or payments for this customer yet.",
+                )
+            self.summary.setText(self.customer_cb.currentText())
+            self._on_sel()
+            return
 
         self.table.setUpdatesEnabled(False)
+        clear_table_body_for_fill(self.table)
         self.table.setRowCount(len(rows))
         for i, r in enumerate(rows):
             items = [
@@ -280,25 +291,22 @@ class LedgerPage(QWidget):
                     it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.table.setItem(i, col, it)
 
-            btn = QPushButton()
-            btn.setIcon(trash_ico)
-            btn.setIconSize(icon_sz)
-            btn.setFixedSize(32, 28)
-            btn.setToolTip("Move to trash")
-            btn.setFlat(True)
+            enabled = (r.entry_type == "INVOICE" and r.invoice_id is not None) or (
+                r.entry_type == "PAYMENT" and r.payment_id is not None
+            )
             if r.entry_type == "INVOICE" and r.invoice_id is not None:
                 iid = int(r.invoice_id)
-                btn.clicked.connect(lambda checked=False, x=iid: self._trash_invoice_by_id(x))
+                on_del = lambda x=iid: self._trash_invoice_by_id(x)
             elif r.entry_type == "PAYMENT" and r.payment_id is not None:
                 pid = int(r.payment_id)
-                btn.clicked.connect(lambda checked=False, x=pid: self._trash_payment_by_id(x))
+                on_del = lambda x=pid: self._trash_payment_by_id(x)
             else:
-                btn.setEnabled(False)
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(0, 0, 0, 0)
-            hl.addWidget(btn, 0, Qt.AlignmentFlag.AlignCenter)
-            self.table.setCellWidget(i, 6, w)
+                on_del = lambda: None
+            self.table.setCellWidget(
+                i,
+                6,
+                make_trash_cell(on_del, tooltip="Move to trash", enabled=enabled),
+            )
 
         self.table.setUpdatesEnabled(True)
         self.table.resizeColumnToContents(2)

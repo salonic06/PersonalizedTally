@@ -31,8 +31,13 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (u: User) => void }) {
   };
 
   return (
-    <main className="login">
-      <h1>Personalized Tally</h1>
+    <main className="login app-shell">
+      <div className="brand-row">
+        <span className="brand-mark" aria-hidden>
+          PT
+        </span>
+        <h1>Personalized Tally</h1>
+      </div>
       <p className="sub">
         Web companion — monitor receivables and record payments (same FIFO rules as desktop).
         Invoicing and Excel stay in the Windows app.
@@ -168,11 +173,16 @@ function DashboardApp({ user, onLogout }: { user: User; onLogout: () => void }) 
   };
 
   return (
-    <main>
+    <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>Personalized Tally</h1>
-          <p className="sub">
+          <div className="brand-row">
+            <span className="brand-mark" aria-hidden>
+              PT
+            </span>
+            <h1>Personalized Tally</h1>
+          </div>
+          <p className="sub sub--tight">
             Signed in as <strong>{user.username}</strong> ({user.role}) — payments use desktop FIFO allocation
           </p>
         </div>
@@ -190,11 +200,11 @@ function DashboardApp({ user, onLogout }: { user: User; onLogout: () => void }) 
             <label>Outstanding</label>
             <strong>{inr(dash.total_outstanding)}</strong>
           </div>
-          <div className="card">
+          <div className={`card${dash.due_today_count > 0 ? " card--warn" : ""}`}>
             <label>Due today</label>
             <strong>{dash.due_today_count}</strong>
           </div>
-          <div className="card">
+          <div className={`card${dash.overdue_count > 0 ? " card--alert" : ""}`}>
             <label>Overdue</label>
             <strong>{dash.overdue_count}</strong>
           </div>
@@ -372,7 +382,12 @@ export default function App() {
       .finally(() => setChecking(false));
   }, []);
 
-  if (checking) return <main className="login"><p className="sub">Loading…</p></main>;
+  if (checking)
+    return (
+      <main className="login loading-state app-shell">
+        <p className="sub">Loading…</p>
+      </main>
+    );
   if (!user) return <LoginScreen onLoggedIn={setUser} />;
   return <DashboardApp user={user} onLogout={() => setUser(null)} />;
 }

@@ -26,17 +26,11 @@ from PySide6.QtWidgets import (
 )
 
 from ...db.conn import transaction
-from ...repo import Repo
+from ...repo import Repo, format_batch_code, normalize_batch_no
+from ..form_util import configure_form, form_add_row, form_add_widget_row
 from ..page_header import make_page_header
-from ..theme import apply_primary_button, format_batch_code, normalize_batch_no
-from ..qt_icons import trash_icon_button_size, trash_row_icon
-
-# Full-row selection fill (avoids “outline only” on some Windows styles) + zebra striping
-_TABLE_STYLE = (
-    "QTableWidget { alternate-background-color: #f5f5f5; gridline-color: #e0e0e0; }"
-    "QTableWidget::item:selected { background-color: #cce8ff; color: #000; }"
-    "QTableWidget::item:selected:!active { background-color: #cce8ff; color: #000; }"
-)
+from ..table_action import configure_action_column, make_trash_cell, polish_data_table
+from ..theme import apply_primary_button
 
 
 class BatchesConsumptionTab(QWidget):
@@ -112,12 +106,11 @@ class BatchesConsumptionTab(QWidget):
         bh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         bh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         bh.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        bh.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        bh.resizeSection(4, 44)
         self.tbl_batches.setAlternatingRowColors(True)
+        polish_data_table(self.tbl_batches)
+        configure_action_column(self.tbl_batches, 4)
         self.tbl_batches.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl_batches.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.tbl_batches.setStyleSheet(_TABLE_STYLE)
         left.addWidget(self.tbl_batches, 1)
         split.addLayout(left, 0, 0)
 
@@ -135,25 +128,25 @@ class BatchesConsumptionTab(QWidget):
         for c in range(4):
             ch.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         ch.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        ch.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        ch.resizeSection(4, 44)
         self.tbl_cons.setAlternatingRowColors(True)
+        polish_data_table(self.tbl_cons)
+        configure_action_column(self.tbl_cons, 4)
         self.tbl_cons.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl_cons.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.tbl_cons.setStyleSheet(_TABLE_STYLE)
         cons_outer.addWidget(self.tbl_cons, 1)
 
         add_form = QFormLayout()
+        configure_form(add_form)
         self.add_rm_cb = QComboBox()
         self.add_rm_cb.setMinimumHeight(32)
-        add_form.addRow("RM code", self.add_rm_cb)
+        form_add_row(add_form, "RM code", self.add_rm_cb)
         self.add_qty = QDoubleSpinBox()
         self.add_qty.setDecimals(3)
         self.add_qty.setMaximum(1e12)
         self.add_qty.setMinimum(0.001)
         self.add_qty.setValue(1.0)
         self.add_qty.setMinimumHeight(32)
-        add_form.addRow("Quantity", self.add_qty)
+        form_add_row(add_form, "Quantity", self.add_qty)
         mode_row = QHBoxLayout()
         self.rb_fifo = QRadioButton("FIFO (oldest lots first)")
         self.rb_manual = QRadioButton("Manual lot")
@@ -164,13 +157,13 @@ class BatchesConsumptionTab(QWidget):
         mode_row.addWidget(self.rb_fifo)
         mode_row.addWidget(self.rb_manual)
         mode_row.addStretch(1)
-        add_form.addRow("Allocation", mode_row)
+        form_add_row(add_form, "Allocation", mode_row)
         self.add_lot_cb = QComboBox()
         self.add_lot_cb.setMinimumHeight(32)
-        add_form.addRow("Lot (manual)", self.add_lot_cb)
+        form_add_row(add_form, "Lot (manual)", self.add_lot_cb)
         self.btn_add_cons = QPushButton("Add consumption")
         self.btn_add_cons.setMinimumHeight(36)
-        add_form.addRow(self.btn_add_cons)
+        form_add_widget_row(add_form, self.btn_add_cons)
         cons_outer.addLayout(add_form)
         right.addWidget(self.grp_consume, 1)
         split.addLayout(right, 0, 1)
@@ -264,8 +257,6 @@ class BatchesConsumptionTab(QWidget):
 
     def _reload_batches_table(self, select_id: int | None = None) -> None:
         rows = self._repo.list_production_batches()
-        trash_ico = trash_row_icon()
-        isz = trash_icon_button_size()
         self.tbl_batches.setRowCount(len(rows))
         pick_row = 0
         for i, r in enumerate(rows):
@@ -282,18 +273,14 @@ class BatchesConsumptionTab(QWidget):
             if len(n) > 60:
                 nit.setToolTip(n)
             self.tbl_batches.setItem(i, 3, nit)
-            btn = QPushButton()
-            btn.setIcon(trash_ico)
-            btn.setIconSize(isz)
-            btn.setToolTip("Delete batch (restores RM to lots)")
-            btn.setFlat(True)
-            btn.setFixedSize(36, 28)
-            btn.clicked.connect(lambda checked=False, x=bid: self._delete_batch(x))
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            self.tbl_batches.setCellWidget(i, 4, w)
+            self.tbl_batches.setCellWidget(
+                i,
+                4,
+                make_trash_cell(
+                    lambda x=bid: self._delete_batch(x),
+                    tooltip="Delete batch (restores RM to lots)",
+                ),
+            )
         if rows:
             self.tbl_batches.selectRow(pick_row)
         else:
@@ -326,8 +313,6 @@ class BatchesConsumptionTab(QWidget):
         self.lbl_batch_head.setText(
             f"{b['batch_code']}  ·  {b['product_name']}  ·  {b['batch_date']}"
         )
-        trash_ico = trash_row_icon()
-        isz = trash_icon_button_size()
         lines = self._repo.list_batch_rm_consumption(bid)
         self.tbl_cons.setRowCount(len(lines))
         for i, ln in enumerate(lines):
@@ -343,18 +328,14 @@ class BatchesConsumptionTab(QWidget):
                 3,
                 QTableWidgetItem("FIFO" if src == "fifo" else "Manual"),
             )
-            btn = QPushButton()
-            btn.setIcon(trash_ico)
-            btn.setIconSize(isz)
-            btn.setToolTip("Remove line (restore qty to lot)")
-            btn.setFlat(True)
-            btn.setFixedSize(36, 28)
-            btn.clicked.connect(lambda checked=False, x=lid: self._remove_line(x))
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            self.tbl_cons.setCellWidget(i, 4, w)
+            self.tbl_cons.setCellWidget(
+                i,
+                4,
+                make_trash_cell(
+                    lambda x=lid: self._remove_line(x),
+                    tooltip="Remove line (restore qty to lot)",
+                ),
+            )
 
     def _update_consume_panel_enabled(self) -> None:
         ok = self._current_batch_id() is not None
@@ -492,16 +473,17 @@ class BatchCostingTab(QWidget):
         self.tbl.setAlternatingRowColors(True)
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.tbl.setStyleSheet(_TABLE_STYLE)
+        polish_data_table(self.tbl)
         root.addWidget(self.tbl, 1)
 
         detail = QGroupBox("Selected batch — edit and save")
         df = QFormLayout(detail)
+        configure_form(df)
         self.lbl_pick = QLabel("Select a batch in the table.")
-        self.lbl_pick.setStyleSheet("font-weight:600;")
-        df.addRow(self.lbl_pick)
+        self.lbl_pick.setObjectName("formSectionTitle")
+        form_add_widget_row(df, self.lbl_pick)
         self.lbl_rm_detail = QLabel("—")
-        df.addRow("RM cost (₹)", self.lbl_rm_detail)
+        form_add_row(df, "RM cost (₹)", self.lbl_rm_detail)
         self.sp_yield = QDoubleSpinBox()
         self.sp_yield.setDecimals(3)
         self.sp_yield.setMaximum(1e12)
@@ -509,21 +491,21 @@ class BatchCostingTab(QWidget):
         self.sp_yield.setSpecialValueText("Not set")
         self.sp_yield.setMinimumHeight(32)
         self.sp_yield.setToolTip("Total kg of finished output for this batch.")
-        df.addRow("Yield (kg output)", self.sp_yield)
+        form_add_row(df, "Yield (kg output)", self.sp_yield)
         self.sp_conv = QDoubleSpinBox()
         self.sp_conv.setDecimals(2)
         self.sp_conv.setMaximum(1e12)
         self.sp_conv.setMinimum(0)
         self.sp_conv.setMinimumHeight(32)
         self.sp_conv.setToolTip("Conversion and overhead expressed as ₹ per kg of finished output.")
-        df.addRow("Conversion & overhead (₹ per kg of output)", self.sp_conv)
+        form_add_row(df, "Conversion & overhead (₹ per kg of output)", self.sp_conv)
         self.lbl_cpk = QLabel("—")
-        df.addRow("Blended cost per kg of output", self.lbl_cpk)
+        form_add_row(df, "Blended cost per kg of output", self.lbl_cpk)
         self.btn_save = QPushButton("Save yield & conversion ₹/kg")
         self.btn_save.setMinimumHeight(38)
         apply_primary_button(self.btn_save)
         self.btn_save.setEnabled(False)
-        df.addRow(self.btn_save)
+        form_add_widget_row(df, self.btn_save)
         root.addWidget(detail)
 
         br = QHBoxLayout()

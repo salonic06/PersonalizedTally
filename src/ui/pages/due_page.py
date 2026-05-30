@@ -23,6 +23,7 @@ from ...open_file import open_local_file
 from ...repo import Repo
 from ...safe_delete import delete_invoice_excel_if_allowed
 from ..page_header import make_page_header
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 from ..trash_invoice_dialog import (
     TrashInvoiceChoice,
     confirm_invoice_permanent_delete,
@@ -145,7 +146,7 @@ class DuePage(QWidget):
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setStyleSheet("QTableWidget{font-size:13px;}")
+        self.table.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.table.itemSelectionChanged.connect(self._on_table_sel)
         # Qt shows a sort arrow on col 0 by default; that is not a user choice — ignore until they change sort.
         self._due_header_user_sorted = False
@@ -350,10 +351,34 @@ class DuePage(QWidget):
             had_indicator = False
             sort_order = Qt.SortOrder.AscendingOrder
 
+        if not rows:
+            self.table.setSortingEnabled(False)
+            if only_overdue:
+                empty_msg = "No overdue invoices — all customer balances are current."
+            elif only_due_today:
+                empty_msg = "No invoices due today."
+            else:
+                empty_msg = "No outstanding invoices in this due date range."
+            set_table_empty_state(self.table, empty_msg)
+            view_label = "Customer-wise totals" if self._view == "customer" else "Invoice-wise"
+            if only_due_today:
+                range_note = "  |  Showing all invoices with balance due today (date range ignored)"
+            elif only_overdue:
+                range_note = "  |  Showing all overdue invoices (date range ignored)"
+            elif df is not None and dt is not None:
+                range_note = f"  |  Due {df.strftime('%d-%m-%Y')}–{dt.strftime('%d-%m-%Y')} (inclusive)"
+            else:
+                range_note = ""
+            self.summary.setText(
+                f"View: {view_label}{range_note}  |  Total outstanding: 0.00  |  Rows: 0"
+            )
+            self._on_table_sel()
+            return
+
         # Performance: disable sorting & repaints during bulk update.
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)
-
+        clear_table_body_for_fill(self.table)
         self.table.setRowCount(len(rows))
         total_outstanding = 0.0
         for i, r in enumerate(rows):

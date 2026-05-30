@@ -33,6 +33,7 @@ from ...email_alerts import (
 )
 from ...owner_digest import build_owner_digest
 from ..digest_preview_dialog import DigestPreviewDialog
+from ..form_util import configure_form, form_add_row, form_section_title
 from ..page_header import make_page_header
 from ..theme import apply_primary_button
 from ...paths import get_paths
@@ -67,11 +68,12 @@ class SettingsPage(QWidget):
         )
 
         form = QFormLayout()
+        configure_form(form)
 
         self.default_credit_days = QLineEdit()
         self.default_credit_days.setMinimumHeight(32)
         self.default_credit_days.setPlaceholderText("45")
-        form.addRow("Default credit days", self.default_credit_days)
+        form_add_row(form, "Default credit days", self.default_credit_days)
 
         # Phase 2 dependencies
         self.template_path = QLineEdit()
@@ -81,7 +83,7 @@ class SettingsPage(QWidget):
         self.btn_pick_tpl = QPushButton("Choose…")
         self.btn_pick_tpl.setMinimumHeight(32)
         pick_tpl.addWidget(self.btn_pick_tpl)
-        form.addRow("Invoice template (.xlsx)", pick_tpl)
+        form_add_row(form, "Invoice template (.xlsx)", pick_tpl)
 
         self.output_folder = QLineEdit()
         self.output_folder.setMinimumHeight(32)
@@ -90,13 +92,11 @@ class SettingsPage(QWidget):
         self.btn_pick_out = QPushButton("Choose…")
         self.btn_pick_out.setMinimumHeight(32)
         pick_out.addWidget(self.btn_pick_out)
-        form.addRow("Invoice output folder", pick_out)
+        form_add_row(form, "Invoice output folder", pick_out)
 
         layout.addLayout(form)
 
-        alerts = QLabel("Email reminders (owner)")
-        alerts.setStyleSheet("font-size:15px; font-weight:600; margin-top:14px;")
-        layout.addWidget(alerts)
+        layout.addWidget(form_section_title("Email reminders (owner)"))
         env_hint = QLabel(
             "SMTP login lives in a .env file (copy .env.example → .env). "
             "Use a Gmail App Password, not your normal password."
@@ -106,10 +106,11 @@ class SettingsPage(QWidget):
         layout.addWidget(env_hint)
 
         alert_form = QFormLayout()
+        configure_form(alert_form)
         self.owner_alert_email = QLineEdit()
         self.owner_alert_email.setMinimumHeight(32)
         self.owner_alert_email.setPlaceholderText("your.email@gmail.com")
-        alert_form.addRow("Send reminders to", self.owner_alert_email)
+        form_add_row(alert_form, "Send reminders to", self.owner_alert_email)
         layout.addLayout(alert_form)
 
         self.chk_email_on_signin = QCheckBox(

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from ..app_info import APP_DISPLAY_NAME
 from ..repo import Repo
+from .form_util import configure_form, form_add_row
 
 Role = Literal["owner", "worker"]
 
@@ -29,17 +30,22 @@ class LoginDialog(QDialog):
         self.setModal(True)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        title = QLabel(APP_DISPLAY_NAME)
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
         intro = QLabel("Sign in to continue.")
-        intro.setStyleSheet("color:#475569; font-size:13px;")
+        intro.setObjectName("mutedHint")
         layout.addWidget(intro)
         form = QFormLayout()
+        configure_form(form)
         self.user = QLineEdit()
         self.user.setPlaceholderText("Username")
         self.pw = QLineEdit()
         self.pw.setEchoMode(QLineEdit.EchoMode.Password)
         self.pw.setPlaceholderText("Password")
-        form.addRow("Username", self.user)
-        form.addRow("Password", self.pw)
+        form_add_row(form, "Username", self.user)
+        form_add_row(form, "Password", self.pw)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(

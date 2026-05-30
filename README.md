@@ -235,11 +235,14 @@ Optional **browser UI** over the same database — monitor dues and **record pay
 
 | Mode | Command | URL |
 |------|---------|-----|
-| **Quick demo** (one port) | `.\tools\run_web_demo.ps1` | http://localhost:8000 |
-| **Development** | API: `uvicorn api.main:app --reload --port 8000` · UI: `cd web && npm run dev` | http://localhost:5173 |
+| **Quick demo** (one port) | `.\tools\run_web_demo.ps1` (builds `web/dist` if needed) | http://localhost:8000 |
+| **API + built UI** | `cd web && npm run build` then `uvicorn api.main:app --reload --port 8000` | http://localhost:8000 |
+| **Development** (hot reload) | API: `uvicorn api.main:app --reload --port 8000` · UI: `cd web && npm run dev` | http://localhost:5173 |
 | **API docs** | (with API running) | http://127.0.0.1:8000/docs |
 
 Install API deps once: `pip install -r requirements-api.txt` (or include in the install line above). Sign in with the same **owner/worker** accounts as the desktop app.
+
+**`WinError 10013` on port 8000:** Another process (often an old `uvicorn` still running in another terminal) already owns the port. Stop it with `.\tools\stop_web_port.ps1`, then run `.\tools\run_web_demo.ps1` again. Or start on another port: `uvicorn api.main:app --port 8001` → http://localhost:8001
 
 **Another device on the same network:** run the API with `--host 0.0.0.0`, use your PC’s IP instead of `localhost`, and allow the ports through Windows Firewall if needed (`tools/check_lan.ps1`, `tools/open_lan_firewall.ps1`). Details: [docs/WEB_MIGRATION.md](docs/WEB_MIGRATION.md).
 

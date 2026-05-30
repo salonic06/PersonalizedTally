@@ -24,8 +24,16 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...repo import Repo
+from ..form_util import configure_form, form_add_row
 from ..page_header import make_page_header
-from ..qt_icons import trash_icon_button_size, trash_row_icon
+from ..table_action import (
+    configure_action_column,
+    make_text_action_cell,
+    make_trash_cell,
+    polish_data_table,
+)
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
+from ..theme import is_dark_mode_enabled
 
 
 class RawMaterialsPage(QWidget):
@@ -74,6 +82,8 @@ class RawMaterialsPage(QWidget):
         for c in (2, 3, 4, 5):
             bh.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         self.tbl_bal.setAlternatingRowColors(False)
+        polish_data_table(self.tbl_bal)
+        configure_action_column(self.tbl_bal, 5)
         self.tbl_bal.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl_bal.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         stock_lay.addWidget(self.tbl_bal, 1)
@@ -83,43 +93,44 @@ class RawMaterialsPage(QWidget):
         self._tab_recv = QWidget()
         recv_lay = QVBoxLayout(self._tab_recv)
         form = QFormLayout()
+        configure_form(form)
         self.recv_rm_cb = QComboBox()
         self.recv_rm_cb.setMinimumHeight(32)
-        form.addRow("RM code", self.recv_rm_cb)
+        form_add_row(form, "RM code", self.recv_rm_cb)
         self.recv_date = QDateEdit()
         self.recv_date.setCalendarPopup(True)
         self.recv_date.setDisplayFormat("dd-MM-yyyy")
         t = date.today()
         self.recv_date.setDate(QDate(t.year, t.month, t.day))
         self.recv_date.setMinimumHeight(32)
-        form.addRow("Received date", self.recv_date)
+        form_add_row(form, "Received date", self.recv_date)
         self.recv_qty = QDoubleSpinBox()
         self.recv_qty.setDecimals(2)
         self.recv_qty.setMaximum(1e12)
         self.recv_qty.setMinimum(0.01)
         self.recv_qty.setValue(1.0)
         self.recv_qty.setMinimumHeight(32)
-        form.addRow("Quantity", self.recv_qty)
+        form_add_row(form, "Quantity", self.recv_qty)
         self.recv_cost = QDoubleSpinBox()
         self.recv_cost.setDecimals(2)
         self.recv_cost.setMaximum(1e12)
         self.recv_cost.setMinimum(0.0)
         self.recv_cost.setMinimumHeight(32)
-        form.addRow("Unit cost (₹ / unit)", self.recv_cost)
+        form_add_row(form, "Unit cost (₹ / unit)", self.recv_cost)
         self.recv_supplier = QLineEdit()
         self.recv_supplier.setMinimumHeight(32)
         self.recv_supplier.setPlaceholderText("Supplier batch / COA ref (optional)")
         self.recv_supplier.setToolTip(
             "Supplier’s batch or certificate reference — for traceability with the vendor (shown in lot ledger)."
         )
-        form.addRow("Supplier ref", self.recv_supplier)
+        form_add_row(form, "Supplier ref", self.recv_supplier)
         self.recv_notes = QLineEdit()
         self.recv_notes.setMinimumHeight(32)
         self.recv_notes.setPlaceholderText("Optional memo for this receipt (shown in lot ledger Notes)")
         self.recv_notes.setToolTip(
             "Your own note for this receipt (e.g. GRN, vehicle, remarks). Stored on the lot and shown in the ledger."
         )
-        form.addRow("Notes", self.recv_notes)
+        form_add_row(form, "Notes", self.recv_notes)
         recv_lay.addLayout(form)
         self.lbl_next_code = QLabel("Next lot code: —")
         self.lbl_next_code.setStyleSheet("font-weight:600;")
@@ -171,6 +182,8 @@ class RawMaterialsPage(QWidget):
         lh.setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)
         lh.resizeSection(9, 44)
         self.tbl_lots.setAlternatingRowColors(False)
+        polish_data_table(self.tbl_lots)
+        configure_action_column(self.tbl_lots, 9)
         self.tbl_lots.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         lots_lay.addWidget(self.tbl_lots, 1)
         tabs.addTab(self._tab_lots, "Lot ledger")
@@ -246,9 +259,17 @@ class RawMaterialsPage(QWidget):
                 for r in rows
                 if r["rm_type"] is not None and str(r["rm_type"]).strip() == st
             ]
+        if not rows:
+            set_table_empty_state(
+                self.tbl_bal,
+                "No raw materials yet — add them under Setup (Seed Data).",
+            )
+            return
+        clear_table_body_for_fill(self.tbl_bal)
         self.tbl_bal.setRowCount(len(rows))
-        warn_bg = QBrush(QColor(255, 235, 210))
-        warn_hex = QColor(255, 235, 210).name()
+        dark = is_dark_mode_enabled(self._repo)
+        warn_bg = QBrush(QColor("#4c0519" if dark else "#fff7ed"))
+        warn_fg = QBrush(QColor("#fde68a" if dark else "#9a3412"))
         for i, r in enumerate(rows):
             rid = int(r["raw_material_id"])
             on_hand = float(r["on_hand"])
@@ -275,21 +296,22 @@ class RawMaterialsPage(QWidget):
                 if it is not None:
                     if below_reorder:
                         it.setBackground(warn_bg)
+                        it.setForeground(warn_fg)
                     else:
                         it.setData(Qt.ItemDataRole.BackgroundRole, None)
+                        it.setData(Qt.ItemDataRole.ForegroundRole, None)
             if below_reorder:
                 oh.setToolTip(f"On hand is below reorder level ({rl_s}).")
                 rlit.setToolTip("Reorder level for this RM.")
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            b_del = QPushButton("Remove")
-            b_del.setEnabled(on_hand <= 0.00001)
-            b_del.clicked.connect(lambda *, x=rid: self._trash_raw_material(x))
-            hl.addWidget(b_del)
-            if below_reorder:
-                w.setStyleSheet(f"background-color: {warn_hex};")
-            self.tbl_bal.setCellWidget(i, 5, w)
+            self.tbl_bal.setCellWidget(
+                i,
+                5,
+                make_text_action_cell(
+                    "Remove",
+                    lambda *, x=rid: self._trash_raw_material(x),
+                    enabled=on_hand <= 0.00001,
+                ),
+            )
 
     def _on_balance_cell(self, row: int, col: int) -> None:
         if col == 5:
@@ -356,8 +378,13 @@ class RawMaterialsPage(QWidget):
         fid = self.lots_filter_cb.currentData()
         rid = int(fid) if fid is not None else None
         rows = self._repo.list_rm_stock_lots(raw_material_id=rid)
-        trash_ico = trash_row_icon()
-        isz = trash_icon_button_size()
+        if not rows:
+            if rid is not None:
+                set_table_empty_state(self.tbl_lots, "No stock lots for this raw material yet.")
+            else:
+                set_table_empty_state(self.tbl_lots, "No stock lots received yet.")
+            return
+        clear_table_body_for_fill(self.tbl_lots)
         self.tbl_lots.setRowCount(len(rows))
         for i, r in enumerate(rows):
             lid = int(r["id"])
@@ -383,18 +410,14 @@ class RawMaterialsPage(QWidget):
             if len(note_s) > 80:
                 nit.setToolTip(note_s)
             self.tbl_lots.setItem(i, 8, nit)
-            btn = QPushButton()
-            btn.setIcon(trash_ico)
-            btn.setIconSize(isz)
-            btn.setToolTip("Remove lot from ledger")
-            btn.setFlat(True)
-            btn.setFixedSize(36, 28)
-            btn.clicked.connect(lambda checked=False, x=lid: self._delete_lot(x))
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            self.tbl_lots.setCellWidget(i, 9, w)
+            self.tbl_lots.setCellWidget(
+                i,
+                9,
+                make_trash_cell(
+                    lambda x=lid: self._delete_lot(x),
+                    tooltip="Remove lot from ledger",
+                ),
+            )
 
     def _delete_lot(self, lot_id: int) -> None:
         if (

@@ -13,15 +13,17 @@ from src.repo import Repo
 from src.ui.login_dialog import LoginDialog
 from src.ui.main_window import MainWindow
 from src.ui.qt_app import build_qt_app
+from src.ui.theme import apply_theme_from_repo
 from src.ui.window_geometry import apply_main_window_state
 
 
 def main() -> int:
-    app = build_qt_app()
     paths = get_paths()
     conn = connect(paths.db_path)
     migrate(conn)
     repo = Repo(conn)
+    app = build_qt_app()
+    apply_theme_from_repo(app, repo)
 
     exit_code = 0
     try:

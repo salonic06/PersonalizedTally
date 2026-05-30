@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -16,6 +15,8 @@ from PySide6.QtWidgets import (
 from ...db.conn import transaction
 from ...repo import Repo
 from ..page_header import make_page_header
+from ..table_action import configure_action_column, make_restore_cell, polish_data_table
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 
 
 class TrashPage(QWidget):
@@ -48,7 +49,8 @@ class TrashPage(QWidget):
         v = QVBoxLayout(w)
         self.t_cust = QTableWidget(0, 3)
         self.t_cust.setHorizontalHeaderLabels(["Name", "Deleted at", ""])
-        self.t_cust.verticalHeader().setVisible(False)
+        polish_data_table(self.t_cust)
+        configure_action_column(self.t_cust, 2)
         v.addWidget(self.t_cust, 1)
         return w
 
@@ -57,7 +59,8 @@ class TrashPage(QWidget):
         v = QVBoxLayout(w)
         self.t_inv = QTableWidget(0, 5)
         self.t_inv.setHorizontalHeaderLabels(["Invoice", "Date", "Customer", "Amount", ""])
-        self.t_inv.verticalHeader().setVisible(False)
+        polish_data_table(self.t_inv)
+        configure_action_column(self.t_inv, 4)
         v.addWidget(self.t_inv, 1)
         return w
 
@@ -66,7 +69,8 @@ class TrashPage(QWidget):
         v = QVBoxLayout(w)
         self.t_pay = QTableWidget(0, 5)
         self.t_pay.setHorizontalHeaderLabels(["Date", "Amount", "Customer", "Reference", ""])
-        self.t_pay.verticalHeader().setVisible(False)
+        polish_data_table(self.t_pay)
+        configure_action_column(self.t_pay, 4)
         v.addWidget(self.t_pay, 1)
         return w
 
@@ -75,7 +79,8 @@ class TrashPage(QWidget):
         v = QVBoxLayout(w)
         self.t_item = QTableWidget(0, 4)
         self.t_item.setHorizontalHeaderLabels(["Name", "HSN", "Deleted at", ""])
-        self.t_item.verticalHeader().setVisible(False)
+        polish_data_table(self.t_item)
+        configure_action_column(self.t_item, 3)
         v.addWidget(self.t_item, 1)
         return w
 
@@ -84,7 +89,8 @@ class TrashPage(QWidget):
         v = QVBoxLayout(w)
         self.t_rm = QTableWidget(0, 3)
         self.t_rm.setHorizontalHeaderLabels(["RM code", "Deleted at", ""])
-        self.t_rm.verticalHeader().setVisible(False)
+        polish_data_table(self.t_rm)
+        configure_action_column(self.t_rm, 2)
         v.addWidget(self.t_rm, 1)
         return w
 
@@ -98,22 +104,24 @@ class TrashPage(QWidget):
     def _fill_cust(self) -> None:
         rows = self._repo.list_deleted_customers()
         t = self.t_cust
+        if not rows:
+            set_table_empty_state(t, "Trash is empty — no deleted customers.")
+            return
+        clear_table_body_for_fill(t)
         t.setRowCount(len(rows))
         for i, r in enumerate(rows):
             t.setItem(i, 0, QTableWidgetItem(str(r["name"] or "")))
             t.setItem(i, 1, QTableWidgetItem(str(r["deleted_at"] or "")))
-            btn = QPushButton("Restore")
             bid = int(r["id"])
-            btn.clicked.connect(lambda *, x=bid: self._restore_customer(x))
-            row_w = QWidget()
-            hl = QHBoxLayout(row_w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            t.setCellWidget(i, 2, row_w)
+            t.setCellWidget(i, 2, make_restore_cell(lambda *, x=bid: self._restore_customer(x)))
 
     def _fill_inv(self) -> None:
         rows = self._repo.list_deleted_invoices()
         t = self.t_inv
+        if not rows:
+            set_table_empty_state(t, "No deleted invoices in trash.")
+            return
+        clear_table_body_for_fill(t)
         t.setRowCount(len(rows))
         for i, r in enumerate(rows):
             t.setItem(i, 0, QTableWidgetItem(str(r["invoice_no"] or "")))
@@ -121,18 +129,16 @@ class TrashPage(QWidget):
             t.setItem(i, 2, QTableWidgetItem(str(r["customer_name"] or "")))
             amt = r["total_after_tax"]
             t.setItem(i, 3, QTableWidgetItem(f"{float(amt):,.2f}" if amt is not None else ""))
-            btn = QPushButton("Restore")
             bid = int(r["id"])
-            btn.clicked.connect(lambda *, x=bid: self._restore_invoice(x))
-            row_w = QWidget()
-            hl = QHBoxLayout(row_w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            t.setCellWidget(i, 4, row_w)
+            t.setCellWidget(i, 4, make_restore_cell(lambda *, x=bid: self._restore_invoice(x)))
 
     def _fill_pay(self) -> None:
         rows = self._repo.list_deleted_payments()
         t = self.t_pay
+        if not rows:
+            set_table_empty_state(t, "No deleted payments in trash.")
+            return
+        clear_table_body_for_fill(t)
         t.setRowCount(len(rows))
         for i, r in enumerate(rows):
             t.setItem(i, 0, QTableWidgetItem(str(r["payment_date"] or "")))
@@ -140,47 +146,37 @@ class TrashPage(QWidget):
             t.setItem(i, 1, QTableWidgetItem(f"{float(amt):,.2f}" if amt is not None else ""))
             t.setItem(i, 2, QTableWidgetItem(str(r["customer_name"] or "")))
             t.setItem(i, 3, QTableWidgetItem(str(r["reference"] or "")))
-            btn = QPushButton("Restore")
             bid = int(r["id"])
-            btn.clicked.connect(lambda *, x=bid: self._restore_payment(x))
-            row_w = QWidget()
-            hl = QHBoxLayout(row_w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            t.setCellWidget(i, 4, row_w)
+            t.setCellWidget(i, 4, make_restore_cell(lambda *, x=bid: self._restore_payment(x)))
 
     def _fill_item(self) -> None:
         rows = self._repo.list_deleted_items()
         t = self.t_item
+        if not rows:
+            set_table_empty_state(t, "No deleted products in trash.")
+            return
+        clear_table_body_for_fill(t)
         t.setRowCount(len(rows))
         for i, r in enumerate(rows):
             t.setItem(i, 0, QTableWidgetItem(str(r["name"] or "")))
             t.setItem(i, 1, QTableWidgetItem(str(r["hsn"] or "")))
             t.setItem(i, 2, QTableWidgetItem(str(r["deleted_at"] or "")))
-            btn = QPushButton("Restore")
             bid = int(r["id"])
-            btn.clicked.connect(lambda *, x=bid: self._restore_item(x))
-            row_w = QWidget()
-            hl = QHBoxLayout(row_w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            t.setCellWidget(i, 3, row_w)
+            t.setCellWidget(i, 3, make_restore_cell(lambda *, x=bid: self._restore_item(x)))
 
     def _fill_rm(self) -> None:
         rows = self._repo.list_deleted_raw_materials()
         t = self.t_rm
+        if not rows:
+            set_table_empty_state(t, "No deleted raw materials in trash.")
+            return
+        clear_table_body_for_fill(t)
         t.setRowCount(len(rows))
         for i, r in enumerate(rows):
             t.setItem(i, 0, QTableWidgetItem(str(r["short_code"] or "")))
             t.setItem(i, 1, QTableWidgetItem(str(r["deleted_at"] or "")))
-            btn = QPushButton("Restore")
             bid = int(r["id"])
-            btn.clicked.connect(lambda *, x=bid: self._restore_raw_material(x))
-            row_w = QWidget()
-            hl = QHBoxLayout(row_w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            t.setCellWidget(i, 2, row_w)
+            t.setCellWidget(i, 2, make_restore_cell(lambda *, x=bid: self._restore_raw_material(x)))
 
     def _restore_customer(self, customer_id: int) -> None:
         try:

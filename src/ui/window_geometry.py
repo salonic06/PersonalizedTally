@@ -23,14 +23,7 @@ def apply_main_window_state(win: QMainWindow) -> None:
     else:
         win.resize(1100, 700)
 
-    maximized = s.value("main_window/maximized", True)
-    if isinstance(maximized, str):
-        maximized = maximized.lower() in ("true", "1", "yes")
-
-    if bool(maximized):
-        win.showMaximized()
-    else:
-        win.showNormal()
+    win.showMaximized()
 
 
 def save_main_window_state(win: QMainWindow) -> None:

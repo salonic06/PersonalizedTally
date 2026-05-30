@@ -209,19 +209,42 @@ def reminders(repo: RepoDep, _user: UserDep) -> RemindersOut:
     )
 
 
-def _mount_web_ui_if_enabled() -> None:
-    """Serve built React from web/dist when PT_SERVE_WEB=1 (portfolio single-port demo)."""
+def _web_ui_disabled() -> bool:
     import os
+
+    return os.environ.get("PT_SERVE_WEB", "").lower() in ("0", "false", "no")
+
+
+def _mount_web_ui() -> None:
+    """Serve built React from web/dist when present (single-port demo on :8000)."""
     from pathlib import Path
 
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
 
-    if os.environ.get("PT_SERVE_WEB", "").lower() not in ("1", "true", "yes"):
+    if _web_ui_disabled():
         return
+
     dist = Path(__file__).resolve().parent.parent / "web" / "dist"
-    if not (dist / "index.html").is_file():
+    index = dist / "index.html"
+    if not index.is_file():
+        @app.get("/", include_in_schema=False)
+        def web_ui_not_built() -> JSONResponse:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "Web UI not built yet.",
+                    "steps": [
+                        "cd web && npm install && npm run build",
+                        "Or run: .\\tools\\run_web_demo.ps1",
+                        "Dev mode: uvicorn on :8000 plus npm run dev → http://localhost:5173",
+                    ],
+                    "api_docs": "/docs",
+                },
+            )
+
         return
+
     assets = dist / "assets"
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="web-assets")
@@ -234,7 +257,7 @@ def _mount_web_ui_if_enabled() -> None:
         if spa_path and candidate.is_file():
             media = "application/javascript" if spa_path.endswith(".js") else None
             return FileResponse(candidate, media_type=media)
-        return FileResponse(dist / "index.html")
+        return FileResponse(index)
 
 
-_mount_web_ui_if_enabled()
+_mount_web_ui()

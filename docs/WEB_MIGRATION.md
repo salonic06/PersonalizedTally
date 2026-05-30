@@ -22,6 +22,14 @@ The **desktop app stays the full product**. The web layer is an optional compani
 
 → http://localhost:8000
 
+**API on :8000 with built UI** (after `cd web && npm run build`):
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload --port 8000
+```
+
+→ http://localhost:8000 (serves `web/dist` automatically). If you see JSON `Not Found` or `Web UI not built`, run `npm run build` in `web/` or use `run_web_demo.ps1`.
+
 **Development (hot reload):**
 
 ```powershell
@@ -43,7 +51,7 @@ Use `tools/check_lan.ps1` and, if needed, `tools/open_lan_firewall.ps1` (Adminis
 
 ## Deploy (optional)
 
-Host API + `personalized_tally.db` on a small VM or PaaS with a persistent disk; serve `web/dist` from the API (`PT_SERVE_WEB=1`) or a static host. Set `PT_WEB_SECRET` for session signing. Full multi-device sync is out of scope today — copy the DB when desktop and server diverge.
+Host API + `personalized_tally.db` on a small VM or PaaS with a persistent disk; build `web/dist` and let the API serve it on port 8000, or use a separate static host. Set `PT_WEB_SECRET` for session signing. Full multi-device sync is out of scope today — copy the DB when desktop and server diverge.
 
 ## Tests
 

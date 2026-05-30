@@ -22,8 +22,16 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...excel_import import iter_invoice_excels, read_invoice_from_excel
-from ...repo import Repo
-from ..page_header import make_page_header, normalize_rm_short_code
+from ...repo import Repo, normalize_rm_short_code
+from ..form_util import (
+    configure_form,
+    form_add_row,
+    form_add_title_row,
+    form_add_widget_row,
+    form_hint,
+    form_label,
+)
+from ..page_header import make_page_header
 
 
 class SeedPage(QWidget):
@@ -60,18 +68,20 @@ class SeedPage(QWidget):
         )
 
         # --- Customer ---
-        cust_box = QWidget()
+        cust_box = QFrame()
+        cust_box.setObjectName("formCard")
         cust_form = QFormLayout(cust_box)
-        cust_form.addRow(QLabel("Add / Update Customer"))
+        configure_form(cust_form)
+        form_add_title_row(cust_form, "Add / Update Customer")
 
         self.cust_pick = QComboBox()
         self.cust_pick.setMinimumHeight(32)
-        cust_form.addRow("Select (optional)", self.cust_pick)
+        form_add_row(cust_form, "Select (optional)", self.cust_pick)
 
         self.cust_name = QLineEdit()
         self.cust_name.setPlaceholderText("Customer name")
         self.cust_name.setMinimumHeight(32)
-        cust_form.addRow("Name", self.cust_name)
+        form_add_row(cust_form, "Name", self.cust_name)
 
         self.cust_credit = QLineEdit()
         self.cust_credit.setPlaceholderText("45")
@@ -81,43 +91,45 @@ class SeedPage(QWidget):
         self.cust_state.setMinimumHeight(32)
 
         cd_state_row = QHBoxLayout()
-        cd_state_row.addWidget(QLabel("Credit days"), 0)
+        cd_state_row.addWidget(form_label("Credit days"), 0)
         cd_state_row.addWidget(self.cust_credit, 1)
-        cd_state_row.addWidget(QLabel("State"), 0)
+        cd_state_row.addWidget(form_label("State"), 0)
         cd_state_row.addWidget(self.cust_state, 1)
-        cust_form.addRow("", cd_state_row)
+        form_add_widget_row(cust_form, cd_state_row)
 
         self.cust_state_code = QLineEdit()
         self.cust_state_code.setMinimumHeight(32)
         self.cust_gstin = QLineEdit()
         self.cust_gstin.setMinimumHeight(32)
         sc_gst_row = QHBoxLayout()
-        sc_gst_row.addWidget(QLabel("State code"), 0)
+        sc_gst_row.addWidget(form_label("State code"), 0)
         sc_gst_row.addWidget(self.cust_state_code, 1)
-        sc_gst_row.addWidget(QLabel("GSTIN"), 0)
+        sc_gst_row.addWidget(form_label("GSTIN"), 0)
         sc_gst_row.addWidget(self.cust_gstin, 2)
-        cust_form.addRow("", sc_gst_row)
+        form_add_widget_row(cust_form, sc_gst_row)
 
         self.cust_address = QLineEdit()
         self.cust_address.setMinimumHeight(32)
-        cust_form.addRow("Address", self.cust_address)
+        form_add_row(cust_form, "Address", self.cust_address)
 
         self.btn_save_cust = QPushButton("Save Customer")
         self.btn_save_cust.setMinimumHeight(34)
-        cust_form.addRow(self.btn_save_cust)
+        form_add_widget_row(cust_form, self.btn_save_cust)
         self.btn_trash_cust = QPushButton("Move selected customer to trash…")
         self.btn_trash_cust.setMinimumHeight(34)
-        cust_form.addRow(self.btn_trash_cust)
+        form_add_widget_row(cust_form, self.btn_trash_cust)
         layout.addWidget(cust_box)
 
         # --- Products master (quick add); DB table remains `items`. ---
-        item_box = QWidget()
+        item_box = QFrame()
+        item_box.setObjectName("formCard")
         item_form = QFormLayout(item_box)
-        item_form.addRow(QLabel("Products master (quick add)"))
+        configure_form(item_form)
+        form_add_title_row(item_form, "Products master (quick add)")
 
         self.item_name = QLineEdit()
         self.item_name.setMinimumHeight(32)
-        item_form.addRow("Product name", self.item_name)
+        form_add_row(item_form, "Product name", self.item_name)
 
         self.item_hsn = QLineEdit()
         self.item_hsn.setMinimumHeight(32)
@@ -125,49 +137,52 @@ class SeedPage(QWidget):
         self.item_unit.setMinimumHeight(32)
         self.item_unit.setText("Kgs")
         hsn_unit_row = QHBoxLayout()
-        hsn_unit_row.addWidget(QLabel("HSN"), 0)
+        hsn_unit_row.addWidget(form_label("HSN"), 0)
         hsn_unit_row.addWidget(self.item_hsn, 1)
-        hsn_unit_row.addWidget(QLabel("Unit"), 0)
+        hsn_unit_row.addWidget(form_label("Unit"), 0)
         hsn_unit_row.addWidget(self.item_unit, 1)
-        item_form.addRow("", hsn_unit_row)
+        form_add_widget_row(item_form, hsn_unit_row)
 
         self.item_rate = QLineEdit()
         self.item_rate.setMinimumHeight(32)
         self.item_rate.setPlaceholderText("Default rate (optional)")
-        item_form.addRow("Default rate", self.item_rate)
+        form_add_row(item_form, "Default rate", self.item_rate)
 
         self.btn_save_item = QPushButton("Save product")
         self.btn_save_item.setMinimumHeight(34)
-        item_form.addRow(self.btn_save_item)
+        form_add_widget_row(item_form, self.btn_save_item)
         self.btn_trash_item = QPushButton("Move product to trash (uses Product name field)…")
         self.btn_trash_item.setMinimumHeight(34)
-        item_form.addRow(self.btn_trash_item)
+        form_add_widget_row(item_form, self.btn_trash_item)
         layout.addWidget(item_box)
 
         # --- Raw materials master (with products; not on stock screen) ---
-        rm_box = QWidget()
+        rm_box = QFrame()
+        rm_box.setObjectName("formCard")
         rm_form = QFormLayout(rm_box)
-        rm_form.addRow(QLabel("Raw materials master"))
-        rm_hint = QLabel(
-            "Define codes, names, unit, and type here. The Raw materials & stock page only shows codes, "
-            "types, and quantities — use this screen for confidential naming. "
-            "Type is a drop-down of types already used on other RMs (empty until you save some); you can also type a new type."
+        configure_form(rm_form)
+        form_add_title_row(rm_form, "Raw materials master")
+        form_add_widget_row(
+            rm_form,
+            form_hint(
+                "Define codes, names, unit, and type here. The Raw materials & stock page only shows codes, "
+                "types, and quantities — use this screen for confidential naming. "
+                "Type is a drop-down of types already used on other RMs (empty until you save some); "
+                "you can also type a new type."
+            ),
         )
-        rm_hint.setStyleSheet("color:#444; font-size:13px;")
-        rm_hint.setWordWrap(True)
-        rm_form.addRow("", rm_hint)
 
         self.rm_pick = QComboBox()
         self.rm_pick.setMinimumHeight(32)
-        rm_form.addRow("Select (optional)", self.rm_pick)
+        form_add_row(rm_form, "Select (optional)", self.rm_pick)
 
         self.rm_code = QLineEdit()
         self.rm_code.setMinimumHeight(32)
-        rm_form.addRow("RM code", self.rm_code)
+        form_add_row(rm_form, "RM code", self.rm_code)
 
         self.rm_name = QLineEdit()
         self.rm_name.setMinimumHeight(32)
-        rm_form.addRow("Name", self.rm_name)
+        form_add_row(rm_form, "Name", self.rm_name)
 
         self.rm_unit = QLineEdit()
         self.rm_unit.setText("Kg")
@@ -178,11 +193,11 @@ class SeedPage(QWidget):
         self.rm_type.setToolTip("Pick an existing type or type a new one. List fills from types already saved on RMs.")
 
         unit_sec_row = QHBoxLayout()
-        unit_sec_row.addWidget(QLabel("Unit"), 0)
+        unit_sec_row.addWidget(form_label("Unit"), 0)
         unit_sec_row.addWidget(self.rm_unit, 1)
-        unit_sec_row.addWidget(QLabel("Type"), 0)
+        unit_sec_row.addWidget(form_label("Type"), 0)
         unit_sec_row.addWidget(self.rm_type, 2)
-        rm_form.addRow("", unit_sec_row)
+        form_add_widget_row(rm_form, unit_sec_row)
 
         self.rm_reorder = QDoubleSpinBox()
         self.rm_reorder.setDecimals(2)
@@ -193,7 +208,7 @@ class SeedPage(QWidget):
         self.rm_reorder.setValue(-1.0)
         self.rm_reorder.setMinimumHeight(32)
         self.rm_reorder.setToolTip("Optional: flag when on-hand stock falls below this quantity (same unit as RM).")
-        rm_form.addRow("Reorder level (optional)", self.rm_reorder)
+        form_add_row(rm_form, "Reorder level (optional)", self.rm_reorder)
 
         self.rm_product_link = QComboBox()
         self.rm_product_link.setMinimumHeight(32)
@@ -202,20 +217,22 @@ class SeedPage(QWidget):
             "Use for finished-goods stock rows (e.g. RM code LP750 for sellable product Lampol 750). "
             "When set, saving batch yield adds quantity here; invoicing with that batch reduces it."
         )
-        rm_form.addRow("Finished-good stock for product", self.rm_product_link)
+        form_add_row(rm_form, "Finished-good stock for product", self.rm_product_link)
 
         self.btn_save_rm = QPushButton("Save raw material")
         self.btn_save_rm.setMinimumHeight(34)
-        rm_form.addRow(self.btn_save_rm)
+        form_add_widget_row(rm_form, self.btn_save_rm)
         self.btn_trash_rm = QPushButton("Move selected RM to trash…")
         self.btn_trash_rm.setMinimumHeight(34)
-        rm_form.addRow(self.btn_trash_rm)
+        form_add_widget_row(rm_form, self.btn_trash_rm)
         layout.addWidget(rm_box)
 
         # --- Import (migration only) ---
-        imp_box = QWidget()
+        imp_box = QFrame()
+        imp_box.setObjectName("formCard")
         imp_form = QFormLayout(imp_box)
-        imp_form.addRow(QLabel("Import Existing Excel Invoices (one-time migration)"))
+        configure_form(imp_form)
+        form_add_title_row(imp_form, "Import Existing Excel Invoices (one-time migration)")
 
         self.imp_folder = QLineEdit()
         self.imp_folder.setMinimumHeight(32)
@@ -226,12 +243,15 @@ class SeedPage(QWidget):
         self.btn_pick = QPushButton("Choose Folder…")
         self.btn_pick.setMinimumHeight(32)
         pick_row.addWidget(self.btn_pick)
-        imp_form.addRow("Folder", pick_row)
+        form_add_row(imp_form, "Folder", pick_row)
 
         self.btn_import = QPushButton("Import invoices from folder")
         self.btn_import.setMinimumHeight(34)
-        imp_form.addRow(self.btn_import)
-        imp_form.addRow(QLabel("Note: once you start generating invoices from the app, you won't need this."))
+        form_add_widget_row(imp_form, self.btn_import)
+        form_add_widget_row(
+            imp_form,
+            form_hint("Note: once you start generating invoices from the app, you won't need this."),
+        )
         layout.addWidget(imp_box)
 
         layout.addStretch(1)

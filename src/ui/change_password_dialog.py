@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..repo import Repo
+from .form_util import configure_form, form_add_row
 
 
 class ChangePasswordDialog(QDialog):
@@ -26,6 +27,7 @@ class ChangePasswordDialog(QDialog):
         layout.addWidget(QLabel(f"Signed in as {self._username}"))
 
         form = QFormLayout()
+        configure_form(form)
         self.old_pw = QLineEdit()
         self.old_pw.setEchoMode(QLineEdit.EchoMode.Password)
         self.old_pw.setPlaceholderText("Current password")
@@ -37,9 +39,9 @@ class ChangePasswordDialog(QDialog):
         self.new_pw2.setPlaceholderText("Confirm new password")
         for w in (self.old_pw, self.new_pw, self.new_pw2):
             w.setMinimumHeight(32)
-        form.addRow("Current", self.old_pw)
-        form.addRow("New", self.new_pw)
-        form.addRow("Confirm", self.new_pw2)
+        form_add_row(form, "Current", self.old_pw)
+        form_add_row(form, "New", self.new_pw)
+        form_add_row(form, "Confirm", self.new_pw2)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(

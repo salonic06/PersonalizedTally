@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
 
 from ...db.conn import transaction
 from ...repo import Repo
+from ..form_util import configure_form, form_add_row, form_add_widget_row
 from ..page_header import make_page_header
-from ..qt_icons import trash_icon_button_size, trash_row_icon
+from ..table_action import configure_action_column, make_trash_cell, polish_data_table
+from ..table_empty import clear_table_body_for_fill, set_table_empty_state
 from ..theme import apply_primary_button
 
 
@@ -56,31 +58,32 @@ class PaymentsPage(QWidget):
         card = QFrame()
         card.setObjectName("formCard")
         card_layout = QFormLayout(card)
+        configure_form(card_layout)
 
         self.customer_cb = QComboBox()
         self.customer_cb.setMinimumHeight(32)
-        card_layout.addRow("Customer", self.customer_cb)
+        form_add_row(card_layout, "Customer", self.customer_cb)
 
         self.date_inp = QLineEdit()
         self.date_inp.setPlaceholderText("YYYY-MM-DD")
         self.date_inp.setText(date.today().isoformat())
         self.date_inp.setMinimumHeight(32)
-        card_layout.addRow("Payment date", self.date_inp)
+        form_add_row(card_layout, "Payment date", self.date_inp)
 
         self.amount_inp = QLineEdit()
         self.amount_inp.setPlaceholderText("e.g. 15000")
         self.amount_inp.setMinimumHeight(32)
-        card_layout.addRow("Amount", self.amount_inp)
+        form_add_row(card_layout, "Amount", self.amount_inp)
 
         self.mode_cb = QComboBox()
         self.mode_cb.addItems(["Bank", "UPI", "Cash", "Cheque", "Other"])
         self.mode_cb.setMinimumHeight(32)
-        card_layout.addRow("Mode", self.mode_cb)
+        form_add_row(card_layout, "Mode", self.mode_cb)
 
         self.ref_inp = QLineEdit()
         self.ref_inp.setPlaceholderText("Reference / UTR / note")
         self.ref_inp.setMinimumHeight(32)
-        card_layout.addRow("Reference", self.ref_inp)
+        form_add_row(card_layout, "Reference", self.ref_inp)
 
         btn_row = QHBoxLayout()
         self.save_btn = QPushButton("Save Payment (Auto-Allocate FIFO)")
@@ -88,7 +91,7 @@ class PaymentsPage(QWidget):
         apply_primary_button(self.save_btn)
         btn_row.addWidget(self.save_btn)
         btn_row.addStretch(1)
-        card_layout.addRow(btn_row)
+        form_add_widget_row(card_layout, btn_row)
 
         layout.addWidget(card)
 
@@ -99,7 +102,8 @@ class PaymentsPage(QWidget):
         self.pay_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.pay_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.pay_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.pay_table.setStyleSheet("QTableWidget{font-size:13px;}")
+        polish_data_table(self.pay_table)
+        configure_action_column(self.pay_table, 4)
         self.pay_table.setMinimumHeight(280)
         layout.addWidget(self.pay_table)
 
@@ -128,9 +132,12 @@ class PaymentsPage(QWidget):
 
     def reload_recent_payments(self) -> None:
         rows = self._repo.list_payments_recent(100)
-        trash_ico = trash_row_icon()
-        isz = trash_icon_button_size()
         self.pay_table.setUpdatesEnabled(False)
+        if not rows:
+            set_table_empty_state(self.pay_table, "No payments recorded yet.")
+            self.pay_table.setUpdatesEnabled(True)
+            return
+        clear_table_body_for_fill(self.pay_table)
         self.pay_table.setRowCount(len(rows))
         for i, r in enumerate(rows):
             pid = int(r["id"])
@@ -141,18 +148,14 @@ class PaymentsPage(QWidget):
             amt = r["amount"]
             self.pay_table.setItem(i, 2, QTableWidgetItem(f"{float(amt):,.2f}" if amt is not None else ""))
             self.pay_table.setItem(i, 3, QTableWidgetItem(str(r["reference"] or "")))
-            btn = QPushButton()
-            btn.setIcon(trash_ico)
-            btn.setIconSize(isz)
-            btn.setToolTip("Move to trash")
-            btn.setFlat(True)
-            btn.setFixedSize(32, 28)
-            btn.clicked.connect(lambda checked=False, x=pid: self._trash_payment_id(x))
-            w = QWidget()
-            hl = QHBoxLayout(w)
-            hl.setContentsMargins(2, 2, 2, 2)
-            hl.addWidget(btn)
-            self.pay_table.setCellWidget(i, 4, w)
+            self.pay_table.setCellWidget(
+                i,
+                4,
+                make_trash_cell(
+                    lambda checked=False, x=pid: self._trash_payment_id(x),
+                    tooltip="Move to trash",
+                ),
+            )
         self.pay_table.setUpdatesEnabled(True)
 
     def _trash_payment_id(self, payment_id: int) -> None:

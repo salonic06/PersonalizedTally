@@ -15,7 +15,15 @@ if (-not (Test-Path "node_modules")) { npm install }
 npm run build
 Pop-Location
 
-$env:PT_SERVE_WEB = "1"
-Write-Host "`nOpen http://localhost:8000 (sign in: owner / owner123)" -ForegroundColor Green
-Write-Host "API docs: http://localhost:8000/docs`n" -ForegroundColor DarkGray
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+$port = 8000
+$busy = netstat -ano | findstr "LISTENING" | findstr ":$port "
+if ($busy) {
+  Write-Host "Port $port is already in use (leftover server from a previous run)." -ForegroundColor Red
+  Write-Host "Free it:  .\tools\stop_web_port.ps1" -ForegroundColor Yellow
+  Write-Host "Or use another port:  uvicorn api.main:app --port 8001  →  http://localhost:8001`n" -ForegroundColor DarkGray
+  exit 1
+}
+
+Write-Host "`nOpen http://localhost:$port (sign in: owner / owner123)" -ForegroundColor Green
+Write-Host "API docs: http://localhost:$port/docs`n" -ForegroundColor DarkGray
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port $port
