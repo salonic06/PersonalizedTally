@@ -264,6 +264,11 @@ class SettingsPage(QWidget):
         self.saved.emit()
 
     def _preview_digest(self) -> None:
+        self._repo.audit_log_append(
+            action="digest_previewed",
+            entity_type="email_digest",
+            detail=f"ref={date.today().isoformat()}",
+        )
         text = build_owner_digest(self._repo, date.today())
         dlg = DigestPreviewDialog(text, self)
         dlg.exec()
@@ -279,9 +284,14 @@ class SettingsPage(QWidget):
             return
         try:
             today = date.today()
-            to, _ = send_owner_reminder_email(self._repo, today)
+            to, _ = send_owner_reminder_email(self._repo, today, source="manual")
             self._repo.set_setting(SETTING_LAST_DIGEST_DATE, today.isoformat())
         except Exception as e:
+            self._repo.audit_log_append(
+                action="digest_email_failed",
+                entity_type="email_digest",
+                detail=f"source=manual ref={date.today().isoformat()} error={e}",
+            )
             QMessageBox.critical(self, "Send failed", str(e))
             return
         QMessageBox.information(

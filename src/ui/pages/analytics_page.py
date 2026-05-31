@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -32,6 +31,7 @@ from PySide6.QtWidgets import (
 
 
 from ...repo import AnalyticsMonthRow, AnalyticsYearRow, InvoiceGrossProfit, Repo
+from ..form_util import form_label, make_content_section, make_metric_card
 from ..page_header import make_page_header
 
 
@@ -335,8 +335,12 @@ class AnalyticsPage(QWidget):
             )
         )
 
+        filter_sec, filter_lay = make_content_section(
+            "Date range",
+            "Filter invoice gross-profit rows by invoice date. Outstanding is a live snapshot (not filtered).",
+        )
         filt = QHBoxLayout()
-        filt.addWidget(QLabel("Invoice date"))
+        filt.addWidget(form_label("Invoice date from"))
         self.from_de = QDateEdit()
         self.to_de = QDateEdit()
         for w in (self.from_de, self.to_de):
@@ -354,41 +358,30 @@ class AnalyticsPage(QWidget):
         self.to_de.dateChanged.connect(lambda _: self.refresh())
 
         filt.addWidget(self.from_de)
-        filt.addWidget(QLabel("to"))
+        filt.addWidget(form_label("to"))
         filt.addWidget(self.to_de)
         filt.addStretch(1)
-        layout.addLayout(filt)
+        filter_lay.addLayout(filt)
 
         self._outstanding_lbl = QLabel("")
+        self._outstanding_lbl.setObjectName("analyticsStat")
         self._outstanding_lbl.setWordWrap(True)
-        self._outstanding_lbl.setStyleSheet("font-size:14px; font-weight:600; color:#0f172a;")
-        layout.addWidget(self._outstanding_lbl)
+        filter_lay.addWidget(self._outstanding_lbl)
+        layout.addWidget(filter_sec)
 
-        self._kpi_wrap = QWidget()
-        self._kpi_wrap.setMinimumWidth(560)
-        self._kpi_grid = QGridLayout(self._kpi_wrap)
+        self._kpi_grid = QGridLayout()
         self._kpi_grid.setSpacing(14)
         self._kpi_grid.setHorizontalSpacing(14)
         self._kpi_labels: dict[str, QLabel] = {}
 
         def add_kpi(row: int, col: int, key: str, caption: str) -> None:
-            box = QFrame()
-            box.setObjectName("dashCard")
+            val, foot, _, box = make_metric_card(caption)
+            foot.hide()
+            val.setWordWrap(True)
+            val.setMinimumHeight(30)
             box.setMinimumHeight(92)
-            vl = QVBoxLayout(box)
-            vl.setSpacing(6)
-            c = QLabel(caption)
-            c.setObjectName("kpiCaption")
-            c.setWordWrap(True)
-            v = QLabel("—")
-            v.setObjectName("kpiValue")
-            v.setWordWrap(True)
-            v.setMinimumHeight(30)
-            vl.addWidget(c)
-            vl.addWidget(v)
-            vl.addStretch(1)
             self._kpi_grid.addWidget(box, row, col)
-            self._kpi_labels[key] = v
+            self._kpi_labels[key] = val
 
         add_kpi(0, 0, "sales", "Sales ex‑GST (invoice dates)")
         add_kpi(0, 1, "cogs", "COGS (linked batches)")
@@ -421,12 +414,17 @@ class AnalyticsPage(QWidget):
 
         sum_inner = QWidget()
         sum_lay = QVBoxLayout(sum_inner)
-        sum_lay.setSpacing(12)
+        sum_lay.setSpacing(16)
 
-        kpi_heading = QLabel("Period statistics")
-        kpi_heading.setStyleSheet("font-weight:700; font-size:15px; color:#0f172a;")
-        sum_lay.addWidget(kpi_heading)
-        sum_lay.addWidget(self._kpi_wrap)
+        kpi_sec, kpi_lay = make_content_section(
+            "Period statistics",
+            "Rollups for invoices in the selected date range.",
+        )
+        kpi_host = QWidget()
+        kpi_host.setMinimumWidth(560)
+        kpi_host.setLayout(self._kpi_grid)
+        kpi_lay.addWidget(kpi_host)
+        sum_lay.addWidget(kpi_sec)
 
         row_btns = QHBoxLayout()
         self.btn_export_month = QPushButton("Export monthly CSV…")
@@ -444,11 +442,10 @@ class AnalyticsPage(QWidget):
         row_btns.addWidget(self.btn_refresh)
         sum_lay.addLayout(row_btns)
 
-        charts_intro = QLabel("Monthly charts — compare billed activity vs collections; spot COGS pressure.")
-        charts_intro.setWordWrap(True)
-        charts_intro.setStyleSheet("font-weight:600; font-size:14px; color:#0f172a; margin-top:4px;")
-        sum_lay.addWidget(charts_intro)
-
+        charts_sec, charts_lay = make_content_section(
+            "Monthly charts",
+            "Compare billed activity vs collections; spot COGS pressure.",
+        )
         charts_wrap = QWidget()
         charts_grid = QGridLayout(charts_wrap)
         charts_grid.setSpacing(18)
@@ -469,11 +466,13 @@ class AnalyticsPage(QWidget):
         charts_grid.addWidget(self.chart_margin, 1, 1)
         charts_grid.setColumnStretch(0, 1)
         charts_grid.setColumnStretch(1, 1)
-        sum_lay.addWidget(charts_wrap)
+        charts_lay.addWidget(charts_wrap)
+        sum_lay.addWidget(charts_sec)
 
-        top_box = QGroupBox("Top customers in filtered period (by ex‑GST revenue)")
-        top_box.setStyleSheet("QGroupBox{font-weight:600; font-size:14px;}")
-        top_lay = QVBoxLayout(top_box)
+        top_sec, top_lay = make_content_section(
+            "Top customers",
+            "By ex‑GST revenue in the filtered period.",
+        )
         self.tbl_top = QTableWidget(0, 5)
         self.tbl_top.setHorizontalHeaderLabels(
             ["Customer", "Revenue (ex‑GST)", "Share %", "COGS", "Gross profit"]
@@ -482,14 +481,15 @@ class AnalyticsPage(QWidget):
         self.tbl_top.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_top.setMaximumHeight(240)
         self.tbl_top.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_top.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_top.setAlternatingRowColors(True)
         top_lay.addWidget(self.tbl_top)
-        sum_lay.addWidget(top_box)
+        sum_lay.addWidget(top_sec)
 
-        lbl_monthly = QLabel("Monthly breakdown")
-        lbl_monthly.setStyleSheet("font-weight:700; font-size:14px; color:#0f172a;")
-        sum_lay.addWidget(lbl_monthly)
+        break_sec, break_lay = make_content_section(
+            "Monthly & yearly breakdown",
+            "Tables expand with your data — scroll the page to see everything.",
+        )
+        break_lay.addWidget(form_label("Monthly"))
         self.tbl_month = QTableWidget(0, 7)
         self.tbl_month.setHorizontalHeaderLabels(
             [
@@ -506,13 +506,11 @@ class AnalyticsPage(QWidget):
         self.tbl_month.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_month.setAlternatingRowColors(True)
         self.tbl_month.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_month.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_month.setMinimumHeight(200)
-        sum_lay.addWidget(self.tbl_month)
+        break_lay.addWidget(self.tbl_month)
 
-        lbl_yearly = QLabel("Yearly breakdown")
-        lbl_yearly.setStyleSheet("font-weight:700; font-size:14px; color:#0f172a;")
-        sum_lay.addWidget(lbl_yearly)
+        break_lay.addSpacing(8)
+        break_lay.addWidget(form_label("Yearly"))
         self.tbl_year = QTableWidget(0, 7)
         self.tbl_year.setHorizontalHeaderLabels(
             [
@@ -529,9 +527,9 @@ class AnalyticsPage(QWidget):
         self.tbl_year.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_year.setAlternatingRowColors(True)
         self.tbl_year.verticalHeader().setDefaultSectionSize(28)
-        self.tbl_year.setStyleSheet("QTableWidget { font-size: 13px; }")
         self.tbl_year.setMinimumHeight(160)
-        sum_lay.addWidget(self.tbl_year)
+        break_lay.addWidget(self.tbl_year)
+        sum_lay.addWidget(break_sec)
 
         sum_scroll.setWidget(sum_inner)
         sum_outer.addWidget(sum_scroll, 1)
@@ -540,13 +538,19 @@ class AnalyticsPage(QWidget):
 
         inv_w = QWidget()
         inv_lay = QVBoxLayout(inv_w)
-        row2 = QHBoxLayout()
+        inv_lay.setContentsMargins(0, 0, 0, 0)
+
+        inv_sec, inv_body = make_content_section(
+            "Invoices in period",
+            "Per-invoice gross profit for the selected date range.",
+        )
+        inv_toolbar = QHBoxLayout()
         self.btn_export_inv = QPushButton("Export invoices CSV…")
         self.btn_export_inv.setMinimumHeight(32)
         self.btn_export_inv.clicked.connect(self._export_invoices_csv)
-        row2.addWidget(self.btn_export_inv)
-        row2.addStretch(1)
-        inv_lay.addLayout(row2)
+        inv_toolbar.addWidget(self.btn_export_inv)
+        inv_toolbar.addStretch(1)
+        inv_body.addLayout(inv_toolbar)
 
         self.tbl_inv = QTableWidget(0, 8)
         self.tbl_inv.setHorizontalHeaderLabels(
@@ -565,7 +569,8 @@ class AnalyticsPage(QWidget):
         self.tbl_inv.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_inv.setSortingEnabled(True)
         self.tbl_inv.setAlternatingRowColors(True)
-        inv_lay.addWidget(self.tbl_inv, 1)
+        inv_body.addWidget(self.tbl_inv)
+        inv_lay.addWidget(inv_sec)
         tabs.addTab(inv_w, "By invoice")
 
         self._inv_rows: list[InvoiceGrossProfit] = []

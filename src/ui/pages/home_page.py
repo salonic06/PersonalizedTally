@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QVBoxLay
 
 from ...notifications import collect_notifications
 from ...repo import Repo
+from ..form_util import form_hint, make_content_section, make_metric_card, set_metric_card_style
 from ..page_header import make_page_header
 from ..theme import is_dark_mode_enabled
 
@@ -35,123 +36,113 @@ class HomePage(QWidget):
 
         scroll_body = QWidget()
         scroll_lay = QVBoxLayout(scroll_body)
-        scroll_lay.setSpacing(10)
+        scroll_lay.setSpacing(16)
 
-        grid = QGridLayout()
-        grid.setSpacing(14)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(2, 1)
-
-        def card(row: int, col: int, caption: str) -> tuple[QLabel, QLabel, QFrame]:
-            box = QFrame()
-            box.setObjectName("dashCard")
-            box.setMinimumHeight(88)
-            vl = QVBoxLayout(box)
-            vl.setSpacing(6)
-            cap = QLabel(caption)
-            cap.setObjectName("dashCardCaption")
-            cap.setWordWrap(True)
-            val = QLabel("—")
-            val.setObjectName("dashCardValue")
-            val.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            foot = QLabel("")
-            foot.setObjectName("dashCardFoot")
-            foot.setWordWrap(True)
-            vl.addWidget(cap)
-            vl.addWidget(val)
-            vl.addWidget(foot)
-            grid.addWidget(box, row, col)
-            return val, foot, box
-
-        self._v_out, self._v_out_f, self._box_out = card(0, 0, "Total outstanding (open invoices)")
-        self._v_due_t, self._v_due_t_f, self._box_due_t = card(
-            0, 1, "Invoices with balance due today"
+        recv_sec, recv_lay = make_content_section(
+            "Receivables",
+            "Open invoice balances and due-date alerts for today.",
         )
-        self._v_due_o, self._v_due_o_f, self._box_due_o = card(
-            0, 2, "Invoices with overdue balance"
+        recv_grid = QGridLayout()
+        recv_grid.setSpacing(12)
+        for c in range(3):
+            recv_grid.setColumnStretch(c, 1)
+
+        self._v_out, self._v_out_f, _, self._box_out = make_metric_card(
+            "Total outstanding (open invoices)"
         )
-
-        self._v_mtd_sales, self._v_mtd_sales_f, _ = card(1, 0, "MTD sales (ex‑GST)")
-        self._v_mtd_coll, self._v_mtd_coll_f, _ = card(1, 1, "MTD collections (payments)")
-        self._v_mtd_gap, self._v_mtd_gap_f, _ = card(1, 2, "MTD cash gap (collections − sales)")
-
-        self._v_mtd_gp, self._v_mtd_gp_f, _ = card(2, 0, "MTD gross profit (est.)")
-        self._v_ytd_gp, self._v_ytd_gp_f, _ = card(2, 1, "YTD gross profit (est.)")
-        self._v_mtd_inv_n, self._v_mtd_inv_n_f, _ = card(2, 2, "MTD invoices issued (#)")
-
-        self._v_ytd_sales, self._v_ytd_sales_f, _ = card(3, 0, "YTD sales (ex‑GST)")
-        self._v_ytd_coll, self._v_ytd_coll_f, _ = card(3, 1, "YTD collections (payments)")
-        self._v_ytd_gap, self._v_ytd_gap_f, _ = card(3, 2, "YTD cash gap (collections − sales)")
-
-        self._v_ytd_inv_n, self._v_ytd_inv_n_f, _ = card(4, 0, "YTD invoices issued (#)")
-        self._v_cust, self._v_cust_f, _ = card(4, 1, "Active customers")
-        self._v_items, self._v_items_f, _ = card(4, 2, "Products in master")
-
-        self._v_rm, self._v_rm_f, self._box_rm = card(5, 0, "Raw materials")
-        self._v_inv, self._v_inv_f, _ = card(5, 1, "Invoices on record (all time)")
-        self._v_pay, self._v_pay_f, _ = card(5, 2, "Payments recorded (all time)")
-
-        self._v_batches, self._v_batches_f, _ = card(6, 0, "Production batches")
-        hint_box = QFrame()
-        hint_box.setObjectName("dashCard")
-        hvl = QVBoxLayout(hint_box)
-        hc = QLabel("Tip")
-        hc.setObjectName("dashCardCaption")
-        hv = QLabel("Use Reminders in the header for low stock, due today, and overdue invoices.")
-        hv.setObjectName("mutedHint")
-        hv.setWordWrap(True)
-        hvl.addWidget(hc)
-        hvl.addWidget(hv)
-        grid.addWidget(hint_box, 6, 1, 1, 2)
-
-        scroll_lay.addLayout(grid)
-
-        foot = QLabel(
-            "Use the top search bar for customers, invoices, payments, and products. "
-            "Due / Outstanding and Payments update balances with FIFO allocation."
+        self._v_due_t, self._v_due_t_f, _, self._box_due_t = make_metric_card(
+            "Invoices with balance due today"
         )
-        foot.setObjectName("mutedHint")
-        foot.setWordWrap(True)
-        scroll_lay.addWidget(foot)
+        self._v_due_o, self._v_due_o_f, _, self._box_due_o = make_metric_card(
+            "Invoices with overdue balance"
+        )
+        recv_grid.addWidget(self._box_out, 0, 0)
+        recv_grid.addWidget(self._box_due_t, 0, 1)
+        recv_grid.addWidget(self._box_due_o, 0, 2)
+        recv_lay.addLayout(recv_grid)
+        scroll_lay.addWidget(recv_sec)
+
+        perf_sec, perf_lay = make_content_section(
+            "Sales & collections",
+            "Month-to-date and year-to-date billed sales, cash collected, and estimated gross profit.",
+        )
+        perf_grid = QGridLayout()
+        perf_grid.setSpacing(12)
+        for c in range(3):
+            perf_grid.setColumnStretch(c, 1)
+
+        self._v_mtd_sales, self._v_mtd_sales_f, _, box_mtd_sales = make_metric_card("MTD sales (ex‑GST)")
+        self._v_mtd_coll, self._v_mtd_coll_f, _, box_mtd_coll = make_metric_card("MTD collections (payments)")
+        self._v_mtd_gap, self._v_mtd_gap_f, _, box_mtd_gap = make_metric_card("MTD cash gap (collections − sales)")
+        self._v_mtd_gp, self._v_mtd_gp_f, _, box_mtd_gp = make_metric_card("MTD gross profit (est.)")
+        self._v_ytd_gp, self._v_ytd_gp_f, _, box_ytd_gp = make_metric_card("YTD gross profit (est.)")
+        self._v_mtd_inv_n, self._v_mtd_inv_n_f, _, box_mtd_inv = make_metric_card("MTD invoices issued (#)")
+        self._v_ytd_sales, self._v_ytd_sales_f, _, box_ytd_sales = make_metric_card("YTD sales (ex‑GST)")
+        self._v_ytd_coll, self._v_ytd_coll_f, _, box_ytd_coll = make_metric_card("YTD collections (payments)")
+        self._v_ytd_gap, self._v_ytd_gap_f, _, box_ytd_gap = make_metric_card("YTD cash gap (collections − sales)")
+        self._v_ytd_inv_n, self._v_ytd_inv_n_f, _, box_ytd_inv = make_metric_card("YTD invoices issued (#)")
+
+        perf_grid.addWidget(box_mtd_sales, 0, 0)
+        perf_grid.addWidget(box_mtd_coll, 0, 1)
+        perf_grid.addWidget(box_mtd_gap, 0, 2)
+        perf_grid.addWidget(box_mtd_gp, 1, 0)
+        perf_grid.addWidget(box_ytd_gp, 1, 1)
+        perf_grid.addWidget(box_mtd_inv, 1, 2)
+        perf_grid.addWidget(box_ytd_sales, 2, 0)
+        perf_grid.addWidget(box_ytd_coll, 2, 1)
+        perf_grid.addWidget(box_ytd_gap, 2, 2)
+        perf_grid.addWidget(box_ytd_inv, 3, 0)
+        perf_lay.addLayout(perf_grid)
+        scroll_lay.addWidget(perf_sec)
+
+        master_sec, master_lay = make_content_section(
+            "Master data",
+            "Counts across customers, products, stock, and production.",
+        )
+        master_grid = QGridLayout()
+        master_grid.setSpacing(12)
+        for c in range(3):
+            master_grid.setColumnStretch(c, 1)
+
+        self._v_cust, self._v_cust_f, _, box_cust = make_metric_card("Active customers")
+        self._v_items, self._v_items_f, _, box_items = make_metric_card("Products in master")
+        self._v_rm, self._v_rm_f, _, self._box_rm = make_metric_card("Raw materials")
+        self._v_inv, self._v_inv_f, _, box_inv = make_metric_card("Invoices on record (all time)")
+        self._v_pay, self._v_pay_f, _, box_pay = make_metric_card("Payments recorded (all time)")
+        self._v_batches, self._v_batches_f, _, box_batches = make_metric_card("Production batches")
+
+        master_grid.addWidget(box_cust, 0, 0)
+        master_grid.addWidget(box_items, 0, 1)
+        master_grid.addWidget(self._box_rm, 0, 2)
+        master_grid.addWidget(box_inv, 1, 0)
+        master_grid.addWidget(box_pay, 1, 1)
+        master_grid.addWidget(box_batches, 1, 2)
+        master_lay.addLayout(master_grid)
+        scroll_lay.addWidget(master_sec)
+
+        scroll_lay.addWidget(
+            form_hint(
+                "Use the top search bar for customers, invoices, payments, and products. "
+                "Click Reminders in the header for low stock, due today, and overdue."
+            )
+        )
+        scroll_lay.addStretch(1)
 
         scroll.setWidget(scroll_body)
         layout.addWidget(scroll, 1)
 
-    def _metric_style(self, *, attention: str | None = None) -> str:
+    def _gap_value_style(self, gap: float) -> str:
         dark = is_dark_mode_enabled(self._repo)
-        if attention == "alert":
-            col = "#fecdd3" if dark else "#9f1239"
-            return f"font-size:22px; font-weight:700; color:{col};"
-        if attention == "warn":
-            col = "#fcd34d" if dark else "#b45309"
-            return f"font-size:22px; font-weight:700; color:{col};"
-        if attention == "stock":
-            col = "#fdba74" if dark else "#c2410c"
-            return f"font-size:22px; font-weight:700; color:{col};"
-        base = "#eceef3" if dark else "#111827"
-        return f"font-size:22px; font-weight:700; color:{base};"
+        gap_neg = "#fcd34d" if dark else "#b45309"
+        gap_ok = "#eceef3" if dark else "#111827"
+        col = gap_neg if gap < -1e-6 else gap_ok
+        return f"font-size:20px; font-weight:700; color:{col};"
 
     def _set_alert_banner(self, kind: str, text: str) -> None:
         self._alerts.setObjectName(f"alertBanner{kind}")
         self._alerts.setText(text)
         self._alerts.style().unpolish(self._alerts)
         self._alerts.style().polish(self._alerts)
-
-    def _style_attention_card(
-        self, box: QFrame, val: QLabel, *, attention: str | None
-    ) -> None:
-        if attention == "alert":
-            box.setObjectName("dashCardAlert")
-        elif attention == "warn":
-            box.setObjectName("dashCardWarn")
-        elif attention == "stock":
-            box.setObjectName("dashCardStock")
-        else:
-            box.setObjectName("dashCard")
-        val.setStyleSheet(self._metric_style(attention=attention))
-        box.style().unpolish(box)
-        box.style().polish(box)
 
     def refresh_alerts(self) -> None:
         alerts = collect_notifications(self._repo, date.today())
@@ -196,22 +187,14 @@ class HomePage(QWidget):
         self._v_batches.setText(str(s.production_batch_count))
         self._v_batches_f.setText("")
 
-        self._style_attention_card(self._box_out, self._v_out, attention=None)
-        self._style_attention_card(
-            self._box_due_t,
-            self._v_due_t,
-            attention="warn" if s.due_today_invoice_count > 0 else None,
+        set_metric_card_style(self._box_out, self._v_out)
+        set_metric_card_style(
+            self._box_due_t, self._v_due_t, warn=s.due_today_invoice_count > 0
         )
-        self._style_attention_card(
-            self._box_due_o,
-            self._v_due_o,
-            attention="alert" if s.overdue_invoice_count > 0 else None,
+        set_metric_card_style(
+            self._box_due_o, self._v_due_o, alert=s.overdue_invoice_count > 0
         )
-        self._style_attention_card(
-            self._box_rm,
-            self._v_rm,
-            attention="stock" if has_low_stock else None,
-        )
+        set_metric_card_style(self._box_rm, self._v_rm, stock=has_low_stock)
 
         self._v_mtd_sales.setText(f"₹{s.mtd_sales_ex_gst:,.2f}")
         self._v_mtd_sales_f.setText(f"{s.mtd_invoice_count} invoices this month")
@@ -220,11 +203,7 @@ class HomePage(QWidget):
         mtd_gap = s.mtd_collections - s.mtd_sales_ex_gst
         self._v_mtd_gap.setText(f"₹{mtd_gap:,.2f}")
         self._v_mtd_gap_f.setText("positive = collected ahead of billed MTD")
-        dark = is_dark_mode_enabled(self._repo)
-        gap_neg = "#fcd34d" if dark else "#b45309"
-        gap_ok = "#eceef3" if dark else "#111827"
-        col = gap_neg if mtd_gap < -1e-6 else gap_ok
-        self._v_mtd_gap.setStyleSheet(f"font-size:20px; font-weight:700; color:{col};")
+        self._v_mtd_gap.setStyleSheet(self._gap_value_style(mtd_gap))
 
         mtd_m = (
             (s.mtd_gross_profit / s.mtd_sales_ex_gst * 100.0) if s.mtd_sales_ex_gst > 1e-9 else 0.0
@@ -248,26 +227,7 @@ class HomePage(QWidget):
         ytd_gap = s.ytd_collections - s.ytd_sales_ex_gst
         self._v_ytd_gap.setText(f"₹{ytd_gap:,.2f}")
         self._v_ytd_gap_f.setText("")
-        col_y = gap_neg if ytd_gap < -1e-6 else gap_ok
-        self._v_ytd_gap.setStyleSheet(f"font-size:20px; font-weight:700; color:{col_y};")
+        self._v_ytd_gap.setStyleSheet(self._gap_value_style(ytd_gap))
 
         self._v_ytd_inv_n.setText(str(s.ytd_invoice_count))
         self._v_ytd_inv_n_f.setText("calendar year to date")
-
-        metric = self._metric_style()
-        for lbl in (
-            self._v_cust,
-            self._v_items,
-            self._v_inv,
-            self._v_pay,
-            self._v_mtd_sales,
-            self._v_mtd_coll,
-            self._v_mtd_gp,
-            self._v_ytd_gp,
-            self._v_mtd_inv_n,
-            self._v_ytd_sales,
-            self._v_ytd_coll,
-            self._v_ytd_inv_n,
-            self._v_batches,
-        ):
-            lbl.setStyleSheet(metric)

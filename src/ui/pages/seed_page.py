@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -24,12 +23,10 @@ from ...db.conn import transaction
 from ...excel_import import iter_invoice_excels, read_invoice_from_excel
 from ...repo import Repo, normalize_rm_short_code
 from ..form_util import (
-    configure_form,
     form_add_row,
-    form_add_title_row,
     form_add_widget_row,
-    form_hint,
     form_label,
+    make_setup_section,
 )
 from ..page_header import make_page_header
 
@@ -58,21 +55,22 @@ class SeedPage(QWidget):
 
         scroll_inner = QWidget()
         layout = QVBoxLayout(scroll_inner)
+        layout.setSpacing(20)
         scroll.setWidget(scroll_inner)
 
         layout.addWidget(
             make_page_header(
                 "Setup (Seed Data)",
-                "Masters, bulk invoice import, and demo fixtures — owner only.",
+                "One-time masters and migration tools. Day-to-day work uses Invoices, "
+                "Raw materials & stock, and Production — open a section below only when you need it.",
             )
         )
 
-        # --- Customer ---
-        cust_box = QFrame()
-        cust_box.setObjectName("formCard")
-        cust_form = QFormLayout(cust_box)
-        configure_form(cust_form)
-        form_add_title_row(cust_form, "Add / Update Customer")
+        # --- Customers ---
+        cust_box, cust_form = make_setup_section(
+            "1. Customers",
+            "Add or edit billing customers. Pick an existing row to update, or leave Select empty for a new one.",
+        )
 
         self.cust_pick = QComboBox()
         self.cust_pick.setMinimumHeight(32)
@@ -112,20 +110,23 @@ class SeedPage(QWidget):
         self.cust_address.setMinimumHeight(32)
         form_add_row(cust_form, "Address", self.cust_address)
 
+        cust_btn_row = QHBoxLayout()
+        cust_btn_row.setSpacing(10)
         self.btn_save_cust = QPushButton("Save Customer")
         self.btn_save_cust.setMinimumHeight(34)
-        form_add_widget_row(cust_form, self.btn_save_cust)
         self.btn_trash_cust = QPushButton("Move selected customer to trash…")
         self.btn_trash_cust.setMinimumHeight(34)
-        form_add_widget_row(cust_form, self.btn_trash_cust)
+        cust_btn_row.addWidget(self.btn_save_cust)
+        cust_btn_row.addWidget(self.btn_trash_cust)
+        cust_btn_row.addStretch(1)
+        form_add_widget_row(cust_form, cust_btn_row)
         layout.addWidget(cust_box)
 
-        # --- Products master (quick add); DB table remains `items`. ---
-        item_box = QFrame()
-        item_box.setObjectName("formCard")
-        item_form = QFormLayout(item_box)
-        configure_form(item_form)
-        form_add_title_row(item_form, "Products master (quick add)")
+        # --- Products ---
+        item_box, item_form = make_setup_section(
+            "2. Products (sellable SKUs)",
+            "Quick-add items used on invoices and production. Restore from Trash if removed by mistake.",
+        )
 
         self.item_name = QLineEdit()
         self.item_name.setMinimumHeight(32)
@@ -148,28 +149,22 @@ class SeedPage(QWidget):
         self.item_rate.setPlaceholderText("Default rate (optional)")
         form_add_row(item_form, "Default rate", self.item_rate)
 
+        item_btn_row = QHBoxLayout()
+        item_btn_row.setSpacing(10)
         self.btn_save_item = QPushButton("Save product")
         self.btn_save_item.setMinimumHeight(34)
-        form_add_widget_row(item_form, self.btn_save_item)
         self.btn_trash_item = QPushButton("Move product to trash (uses Product name field)…")
         self.btn_trash_item.setMinimumHeight(34)
-        form_add_widget_row(item_form, self.btn_trash_item)
+        item_btn_row.addWidget(self.btn_save_item)
+        item_btn_row.addWidget(self.btn_trash_item)
+        item_btn_row.addStretch(1)
+        form_add_widget_row(item_form, item_btn_row)
         layout.addWidget(item_box)
 
-        # --- Raw materials master (with products; not on stock screen) ---
-        rm_box = QFrame()
-        rm_box.setObjectName("formCard")
-        rm_form = QFormLayout(rm_box)
-        configure_form(rm_form)
-        form_add_title_row(rm_form, "Raw materials master")
-        form_add_widget_row(
-            rm_form,
-            form_hint(
-                "Define codes, names, unit, and type here. The Raw materials & stock page only shows codes, "
-                "types, and quantities — use this screen for confidential naming. "
-                "Type is a drop-down of types already used on other RMs (empty until you save some); "
-                "you can also type a new type."
-            ),
+        # --- Raw materials ---
+        rm_box, rm_form = make_setup_section(
+            "3. Raw materials",
+            "Codes and names live here. Stock quantities are on Raw materials & stock.",
         )
 
         self.rm_pick = QComboBox()
@@ -219,20 +214,23 @@ class SeedPage(QWidget):
         )
         form_add_row(rm_form, "Finished-good stock for product", self.rm_product_link)
 
+        rm_btn_row = QHBoxLayout()
+        rm_btn_row.setSpacing(10)
         self.btn_save_rm = QPushButton("Save raw material")
         self.btn_save_rm.setMinimumHeight(34)
-        form_add_widget_row(rm_form, self.btn_save_rm)
         self.btn_trash_rm = QPushButton("Move selected RM to trash…")
         self.btn_trash_rm.setMinimumHeight(34)
-        form_add_widget_row(rm_form, self.btn_trash_rm)
+        rm_btn_row.addWidget(self.btn_save_rm)
+        rm_btn_row.addWidget(self.btn_trash_rm)
+        rm_btn_row.addStretch(1)
+        form_add_widget_row(rm_form, rm_btn_row)
         layout.addWidget(rm_box)
 
-        # --- Import (migration only) ---
-        imp_box = QFrame()
-        imp_box.setObjectName("formCard")
-        imp_form = QFormLayout(imp_box)
-        configure_form(imp_form)
-        form_add_title_row(imp_form, "Import Existing Excel Invoices (one-time migration)")
+        # --- Import ---
+        imp_box, imp_form = make_setup_section(
+            "4. Import old Excel invoices",
+            "One-time migration from a folder of legacy .xlsx files. Skip once you generate invoices in the app.",
+        )
 
         self.imp_folder = QLineEdit()
         self.imp_folder.setMinimumHeight(32)
@@ -248,10 +246,6 @@ class SeedPage(QWidget):
         self.btn_import = QPushButton("Import invoices from folder")
         self.btn_import.setMinimumHeight(34)
         form_add_widget_row(imp_form, self.btn_import)
-        form_add_widget_row(
-            imp_form,
-            form_hint("Note: once you start generating invoices from the app, you won't need this."),
-        )
         layout.addWidget(imp_box)
 
         layout.addStretch(1)

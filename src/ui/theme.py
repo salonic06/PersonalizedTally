@@ -383,6 +383,34 @@ def _light_stylesheet() -> str:
         font-weight: 600;
         color: {text};
     }}
+    QFrame#contentSection, QFrame#setupSection {{
+        background: {card};
+        border: 1px solid {border};
+        border-radius: 12px;
+    }}
+    QFrame#contentSection QLabel, QFrame#setupSection QLabel {{
+        background: transparent;
+        border: none;
+    }}
+    QLabel#sectionCardTitle {{
+        background: transparent;
+        color: {text};
+        font-size: 15px;
+        font-weight: 700;
+        padding: 0;
+        border: none;
+    }}
+    QFrame#sectionDivider {{
+        background: {border};
+        max-height: 1px;
+        min-height: 1px;
+        border: none;
+    }}
+    QLabel#analyticsStat {{
+        font-size: 14px;
+        font-weight: 600;
+        color: {text};
+    }}
     QFrame#dashCardAlert QLabel#dashCardCaption {{
         color: {_ROSE_LIGHT_TEXT};
     }}
@@ -659,6 +687,34 @@ def _dark_stylesheet() -> str:
     }}
     QLabel#sectionHeading {{
         font-size: 15px;
+        font-weight: 600;
+        color: {text};
+    }}
+    QFrame#contentSection, QFrame#setupSection {{
+        background: {card};
+        border: 1px solid {border};
+        border-radius: 12px;
+    }}
+    QFrame#contentSection QLabel, QFrame#setupSection QLabel {{
+        background: transparent;
+        border: none;
+    }}
+    QLabel#sectionCardTitle {{
+        background: transparent;
+        color: {text};
+        font-size: 15px;
+        font-weight: 700;
+        padding: 0;
+        border: none;
+    }}
+    QFrame#sectionDivider {{
+        background: {border};
+        max-height: 1px;
+        min-height: 1px;
+        border: none;
+    }}
+    QLabel#analyticsStat {{
+        font-size: 14px;
         font-weight: 600;
         color: {text};
     }}

@@ -6,6 +6,7 @@ import ssl
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Literal
 
 from .owner_digest import build_owner_digest
 from .paths import get_paths
@@ -14,6 +15,8 @@ from .repo import Repo
 SETTING_OWNER_EMAIL = "owner_alert_email"
 SETTING_EMAIL_ON_SIGNIN = "owner_email_on_signin"
 SETTING_LAST_DIGEST_DATE = "owner_digest_last_sent_date"
+
+DigestSource = Literal["signin", "manual", "unknown"]
 
 
 def project_root() -> Path:
@@ -110,12 +113,22 @@ def send_email_digest(
     return mail_to
 
 
-def send_owner_reminder_email(repo: Repo, today: date | None = None) -> tuple[str, str]:
+def send_owner_reminder_email(
+    repo: Repo,
+    today: date | None = None,
+    *,
+    source: DigestSource = "unknown",
+) -> tuple[str, str]:
     """Build digest from Reminders and email the owner. Returns (recipient, body)."""
     ref = today or date.today()
     body = build_owner_digest(repo, ref)
     subject = f"Personalized Tally reminders — {ref.isoformat()}"
     to = send_email_digest(subject=subject, body=body, to_address=owner_recipient(repo))
+    repo.audit_log_append(
+        action="digest_email_sent",
+        entity_type="email_digest",
+        detail=f"source={source} ref={ref.isoformat()} to={to}",
+    )
     return to, body
 
 
@@ -142,8 +155,13 @@ def maybe_send_signin_digest(repo: Repo, today: date | None = None) -> tuple[boo
         return False, msg
 
     try:
-        to, _ = send_owner_reminder_email(repo, ref)
+        to, _ = send_owner_reminder_email(repo, ref, source="signin")
     except Exception as e:
+        repo.audit_log_append(
+            action="digest_email_failed",
+            entity_type="email_digest",
+            detail=f"source=signin ref={ref.isoformat()} error={e}",
+        )
         return False, str(e)
 
     repo.set_setting(SETTING_LAST_DIGEST_DATE, iso)
